@@ -45,7 +45,8 @@ td{padding:10px 8px;border-bottom:1px solid #f1f4f9;}
     <a onclick="go('ledger',this)">Transaction Ledger</a>
     <a onclick="go('notify',this)">Notification Bar</a>
     <a onclick="go('allow',this)">Allow List</a>
-    <a class="logout" onclick="location.href='index.html';return false;">Logout</a>
+    <a onclick="go('contacts',this)">Contact Details</a>
+    <a class="logout" onclick="location.href='index.html'">Logout</a>
   </div>
 </nav>
 <main>
@@ -53,11 +54,10 @@ td{padding:10px 8px;border-bottom:1px solid #f1f4f9;}
   <div class="page active" id="users">
     <h2>Users & Account Operations</h2>
     <div class="card">
-      <h3>Credit / Debit a User Account</h3>
+      <h3>Credit / Debit a User Account (USD)</h3>
       <div class="row">
         <div><label>User</label><select id="selUser" onchange="fillAccts()"></select></div>
-        <div><label>Account</label><select id="selAcct"></select></div>
-        <div><label>Amount (₦)</label><input id="opAmt" type="number" step="0.01" min="0.01"></div>
+        <div><label>Amount ($)</label><input id="opAmt" type="number" step="0.01" min="0.01"></div>
       </div>
       <label style="margin-top:6px;">Narration / Description</label>
       <input id="opNarr" placeholder="e.g. Salary credit, VAT charge, Transfer fee">
@@ -111,12 +111,42 @@ td{padding:10px 8px;border-bottom:1px solid #f1f4f9;}
       <div class="msg" id="allowMsg"></div>
     </div>
   </div>
+
+  <!-- CONTACTS -->
+  <div class="page" id="contacts">
+    <h2>Contact Details Editor</h2>
+    <div class="card">
+      <h3>Email Addresses</h3>
+      <div id="emailChips" style="margin-bottom:12px;"></div>
+      <div class="row">
+        <div><label>Add email</label><input id="newEmail" type="email" placeholder="support@obamuskybank.com"></div>
+        <div style="align-self:end;"><button class="btn blue" onclick="addContactItem('emails','newEmail')">Add Email</button></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Phone Numbers</h3>
+      <div id="phoneChips" style="margin-bottom:12px;"></div>
+      <div class="row">
+        <div><label>Add phone</label><input id="newPhone" placeholder="+1 (555) 000-0000"></div>
+        <div style="align-self:end;"><button class="btn blue" onclick="addContactItem('phones','newPhone')">Add Phone</button></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Head Office & Hours</h3>
+      <label>Address</label>
+      <input id="editAddress">
+      <label>Business Hours</label>
+      <input id="editHours">
+      <button class="btn blue" onclick="saveContactMisc()">Save Address & Hours</button>
+      <div class="msg" id="contactMsg"></div>
+    </div>
+  </div>
 </main>
 
 <script>
 const getUsers=()=>JSON.parse(localStorage.getItem('omb_users')||'[]');
 const saveUsers=u=>localStorage.setItem('omb_users',JSON.stringify(u));
-const fmt=n=>'₦'+Number(n).toLocaleString('en-NG',{minimumFractionDigits:2});
+const fmt=n=>'$'+Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const when=ts=>new Date(ts).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
 const show=(id,cls,text)=>{const b=document.getElementById(id);b.className='msg '+cls;b.textContent=text;setTimeout(()=>b.className='msg',6000);};
 
@@ -128,49 +158,44 @@ function go(id,el){
 }
 
 function fillUsers(){
-  document.getElementById('selUser').innerHTML=getUsers().map(u=>`<option>${u.username}</option>`).join('');
-  fillAccts();
+  document.getElementById('selUser').innerHTML=getUsers().map(u=>`<option>${u.username} — ${u.name}</option>`).join('');
 }
-function fillAccts(){
-  const u=getUsers().find(x=>x.username===document.getElementById('selUser').value);
-  if(u) document.getElementById('selAcct').innerHTML=u.accounts.map(a=>`<option>${a.number} (${a.type} — ${fmt(a.balance)})</option>`).join('');
+function currentUser(){
+  const name=document.getElementById('selUser').value.split(' — ')[0];
+  return getUsers().find(x=>x.username===name);
 }
-function pickAcct(u){ const v=document.getElementById('selAcct').value; return u.accounts.find(a=>v.startsWith(a.number)); }
-
-function txMsg(ok,text){ show(ok?'opMsg':'opMsg',ok?'ok':'bad',text); }
 
 function credit(){
-  const users=getUsers(), u=users.find(x=>x.username===document.getElementById('selUser').value);
+  const users=getUsers(), u=currentUser();
   const amt=parseFloat(document.getElementById('opAmt').value),
         narr=document.getElementById('opNarr').value.trim()||'Account credit',
         sender=document.getElementById('opSender').value.trim()||'Oba Musky Bank';
-  const acct=pickAcct(u);
-  if(!u||!acct||isNaN(amt)||amt<=0){ txMsg(false,'Please select a user, account and valid amount.'); return; }
-  acct.balance+=amt;
+  if(!u||isNaN(amt)||amt<=0){ show('opMsg','bad','Please select a user and enter a valid amount.'); return; }
+  u.account.balance+=amt;
   u.transactions.push({id:Date.now(),type:'credit',amount:amt,narration:narr,counterparty:sender,status:'successful',timestamp:new Date().toISOString()});
-  saveUsers(users); txMsg(true,`✅ Credited ${fmt(amt)} to ${u.username} (${acct.number}) from "${sender}".`);
-  fillAccts(); renderUsers();
+  saveUsers(users); show('opMsg','ok',`✅ Credited ${fmt(amt)} to ${u.username} (${u.account.number}) from "${sender}".`);
+  renderUsers();
 }
 function debit(){
-  const users=getUsers(), u=users.find(x=>x.username===document.getElementById('selUser').value);
+  const users=getUsers(), u=currentUser();
   const amt=parseFloat(document.getElementById('opAmt').value),
         narr=document.getElementById('opNarr').value.trim()||'Bank charge';
-  const acct=pickAcct(u);
-  if(!u||!acct||isNaN(amt)||amt<=0){ txMsg(false,'Please select a user, account and valid amount.'); return; }
-  if(amt>acct.balance){ txMsg(false,'Insufficient balance in selected account.'); return; }
-  acct.balance-=amt;
+  if(!u||isNaN(amt)||amt<=0){ show('opMsg','bad','Please select a user and enter a valid amount.'); return; }
+  if(amt>u.account.balance){ show('opMsg','bad','Insufficient balance in the account.'); return; }
+  u.account.balance-=amt;
   u.transactions.push({id:Date.now(),type:'debit',amount:amt,narration:narr,counterparty:'Oba Musky Bank (Admin)',status:'successful',timestamp:new Date().toISOString()});
-  saveUsers(users); txMsg(true,`✅ Debited ${fmt(amt)} from ${u.username} (${acct.number}) — narration: "${narr}".`);
-  fillAccts(); renderUsers();
+  saveUsers(users); show('opMsg','ok',`✅ Debited ${fmt(amt)} from ${u.username} (${u.account.number}) — narration: "${narr}".`);
+  renderUsers();
 }
 
 function renderUsers(){
   const users=getUsers();
   document.getElementById('userList').innerHTML=`<h3>Registered Users (${users.length})</h3><table>
-  <thead><tr><th>User</th><th>Accounts & Balances</th><th>Status</th><th>Restriction Reason</th><th>Actions</th></tr></thead><tbody>`+
+  <thead><tr><th>User</th><th>Account</th><th>Balance</th><th>Status</th><th>Restriction Reason</th><th>Actions</th></tr></thead><tbody>`+
   users.map(u=>`<tr>
     <td><b>${u.name}</b><br><span class="tag">@${u.username} • ${u.phone||'—'}</span></td>
-    <td>${u.accounts.map(a=>`${a.number}<br><span class="tag">${a.type} — ${fmt(a.balance)}</span>`).join('<hr style="border:none;border-top:1px solid #f1f4f9;margin:6px 0;">')}</td>
+    <td>${u.account.number}<br><span class="tag">${u.account.type} • ${u.account.currency}</span></td>
+    <td><b>${fmt(u.account.balance)}</b></td>
     <td><span class="badge ${u.restricted?'b-restricted':'b-active'}">${u.restricted?'Restricted':'Active'}</span></td>
     <td style="max-width:160px;font-size:.8rem;">${u.restrictionReason||'—'}</td>
     <td>${u.restricted
@@ -204,18 +229,17 @@ function setStatus(uname,id,status){
   const users=getUsers(), u=users.find(x=>x.username===uname);
   const t=u.transactions.find(x=>x.id===id);
   const old=t.status; t.status=status;
-  // adjust balances so ledger stays consistent
-  const acct=u.accounts.reduce((m,a)=>a.balance>m.balance?a:a); // main (first-largest) account
-  if(status==='reversed'&&old==='successful'){ acct.balance+=(t.type==='debit'?1:-1)*t.amount; }
-  if(status==='successful'&&old==='reversed'){ acct.balance+=(t.type==='debit'?-1:1)*t.amount; }
+  if(status==='reversed'&&old==='successful'){ u.account.balance+=(t.type==='debit'?1:-1)*t.amount; }
+  if(status==='successful'&&old==='reversed'){ u.account.balance+=(t.type==='debit'?-1:1)*t.amount; }
   t.narration=(t.narration?t.narration+' | ':'')+(status==='reversed'?'[REVERSED BY ADMIN]':'[RESTORED BY ADMIN]');
-  saveUsers(users); renderLedger(); renderUsers(); fillAccts();
+  saveUsers(users); renderLedger(); renderUsers();
 }
 
 function setNotif(active){
   localStorage.setItem('omb_notification',JSON.stringify({message:document.getElementById('notifMsg').value,active}));
-  show('notifDone',active?'ok':'ok',active?'✅ Notification published to all user dashboards.':'🔕 Notification removed.');
+  show('notifDone','ok',active?'✅ Notification published to all user dashboards.':'🔕 Notification removed.');
 }
+
 function renderAllow(){
   const list=JSON.parse(localStorage.getItem('omb_allowlist')||'[]');
   document.getElementById('allowChips').innerHTML=list.map((n,i)=>`<span class="chip">${n}<button onclick="rmAllow(${i})">✕</button></span>`).join('')||'<span class="tag">Allow list is empty — ALL transfers will be declined.</span>';
@@ -233,7 +257,33 @@ function addAllow(){
 function rmAllow(i){ const list=JSON.parse(localStorage.getItem('omb_allowlist')||'[]'); list.splice(i,1); localStorage.setItem('omb_allowlist',JSON.stringify(list)); renderAllow(); }
 function saveDecline(){ localStorage.setItem('omb_decline_msg',JSON.stringify(document.getElementById('declineMsg').value)); show('allowMsg','ok','✅ Decline message saved.'); }
 
-fillUsers(); renderUsers(); renderLedger(); renderAllow();
+// ---- Contact editor ----
+const getContacts=()=>JSON.parse(localStorage.getItem('omb_contacts')||'{"emails":[],"phones":[],"address":"","hours":""}');
+const saveContacts=c=>localStorage.setItem('omb_contacts',JSON.stringify(c));
+
+function renderContacts(){
+  const c=getContacts();
+  document.getElementById('emailChips').innerHTML=c.emails.map((e,i)=>`<span class="chip">${e}<button onclick="rmContactItem('emails',${i})">✕</button></span>`).join('')||'<span class="tag">No emails set.</span>';
+  document.getElementById('phoneChips').innerHTML=c.phones.map((p,i)=>`<span class="chip">${p}<button onclick="rmContactItem('phones',${i})">✕</button></span>`).join('')||'<span class="tag">No phones set.</span>';
+  document.getElementById('editAddress').value=c.address;
+  document.getElementById('editHours').value=c.hours;
+}
+function addContactItem(key,inputId){
+  const v=document.getElementById(inputId).value.trim();
+  if(!v){ show('contactMsg','bad','Field cannot be empty.'); return; }
+  const c=getContacts(); c[key].push(v); saveContacts(c);
+  document.getElementById(inputId).value=''; renderContacts();
+  show('contactMsg','ok','✅ Added. Users will see it immediately.');
+}
+function rmContactItem(key,i){ const c=getContacts(); c[key].splice(i,1); saveContacts(c); renderContacts(); }
+function saveContactMisc(){
+  const c=getContacts();
+  c.address=document.getElementById('editAddress').value;
+  c.hours=document.getElementById('editHours').value;
+  saveContacts(c); show('contactMsg','ok','✅ Address & hours saved.');
+}
+
+fillUsers(); renderUsers(); renderLedger(); renderAllow(); renderContacts();
 </script>
 </body>
 </html>
