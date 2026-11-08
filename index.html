@@ -41,7 +41,7 @@ input:focus { border-color:#1d4e89; box-shadow:0 0 0 3px rgba(29,78,137,.15); }
 <div class="container">
   <div class="carousel">
     <div class="slide active" style="background-image:url('https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=1200&q=80')">
-      <div class="overlay"><h2>Banking Made Simple</h2><p>Send money instantly, track every transaction, and manage your accounts — all in one place.</p></div>
+      <div class="overlay"><h2>Banking Made Simple</h2><p>Send money instantly, track every transaction, and manage your account — all in one place.</p></div>
     </div>
     <div class="slide" style="background-image:url('https://images.unsplash.com/photo-1563013544-824ae1b59447?auto=format&fit=crop&w=1200&q=80')">
       <div class="overlay"><h2>Secure & Reliable</h2><p>Your money is protected with industry-leading security and 24/7 monitoring.</p></div>
@@ -54,7 +54,7 @@ input:focus { border-color:#1d4e89; box-shadow:0 0 0 3px rgba(29,78,137,.15); }
 
   <div class="login-side">
     <div class="brand">
-      <div class="logo">₦</div>
+      <div class="logo">$</div>
       <div><h1>Oba Musky Bank</h1><span>Trusted Digital Banking</span></div>
     </div>
     <h3>Welcome Back</h3>
@@ -81,22 +81,30 @@ function setRole(r){ role=r;
   document.getElementById('roleUser').classList.toggle('sel',r==='user');
   document.getElementById('roleAdmin').classList.toggle('sel',r==='admin');
 }
-// seed data on first run
+
+// ---- Seed data on first run ----
 if(!localStorage.getItem('omb_users')){
   const users=[
-    {username:'john',password:'1234',name:'John Okafor',phone:'+234 803 111 2222',
-     accounts:[{number:'0123456789',type:'Savings',balance:250000},{number:'9876543210',type:'Current',balance:52000}],
-     transactions:[{id:Date.now(),type:'credit',amount:50000,narration:'Salary',counterparty:'Acme Corp Payroll',status:'successful',timestamp:new Date().toISOString()}],
+    {username:'john',password:'1234',name:'John Okafor',phone:'+1 (555) 111-2222',
+     account:{number:'0123456789',type:'Checking',currency:'USD',balance:2500.00},
+     transactions:[{id:Date.now(),type:'credit',amount:500,narration:'Salary',counterparty:'Acme Corp Payroll',status:'successful',timestamp:new Date().toISOString()}],
      restricted:false, restrictionReason:''},
-    {username:'jane',password:'1234',name:'Jane Adeyemi',phone:'+234 805 333 4444',
-     accounts:[{number:'1122334455',type:'Savings',balance:118500}],
-     transactions:[],restricted:false,restrictionReason:''}
+    {username:'jane',password:'1234',name:'Jane Adeyemi',phone:'+1 (555) 333-4444',
+     account:{number:'1122334455',type:'Checking',currency:'USD',balance:1180.50},
+     transactions:[],restricted:false, restrictionReason:''}
   ];
   localStorage.setItem('omb_users',JSON.stringify(users));
   localStorage.setItem('omb_notification',JSON.stringify({message:'Welcome to Oba Musky Bank — experience seamless banking today!',active:true}));
-  localStorage.setItem('omb_allowlist',JSON.stringify(['0123456789','9876543210','1122334455','5566778899']));
+  localStorage.setItem('omb_allowlist',JSON.stringify(['0123456789','1122334455','5566778899']));
   localStorage.setItem('omb_decline_msg',JSON.stringify('This beneficiary account is currently not accepting transfers. Please contact support.'));
+  localStorage.setItem('omb_contacts',JSON.stringify({
+    emails:['support@obamuskybank.com','complaints@obamuskybank.com'],
+    phones:['+1 (700) OBA-MUSKY','+1 (212) 555-9900'],
+    address:'25 Harbor Avenue, Suite 400, New York, NY 10005',
+    hours:'Mon–Fri: 8am – 6pm EST'
+  }));
 }
+
 function doLogin(e){
   e.preventDefault();
   const u=document.getElementById('username').value.trim(), p=document.getElementById('password').value;
@@ -109,7 +117,8 @@ function doLogin(e){
   if(f){ sessionStorage.setItem('omb_session',u); location.href='users.html'; return false; }
   document.getElementById('err').textContent='Invalid username or password.'; return false;
 }
-// carousel
+
+// ---- Carousel ----
 const slides=document.querySelectorAll('.slide'), dots=document.querySelectorAll('.dot');
 let cur=0;
 function show(i){ slides.forEach((s,j)=>s.classList.toggle('active',j===i)); dots.forEach((d,j)=>d.classList.toggle('active',j===i)); cur=i; }
