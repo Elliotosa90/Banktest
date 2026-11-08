@@ -35,6 +35,7 @@ td{padding:10px 8px;border-bottom:1px solid #f1f4f9;}
 .chip{display:inline-flex;align-items:center;gap:8px;background:#eef3fb;padding:6px 12px;border-radius:20px;margin:4px;font-size:.85rem;}
 .chip button{border:none;background:#c0392b;color:#fff;border-radius:50%;width:20px;height:20px;cursor:pointer;font-size:.7rem;}
 .tag{font-size:.75rem;color:#7a8aa3;}
+select{width:100%;padding:11px;border:1.5px solid #dbe3ee;border-radius:9px;font-size:.95rem;outline:none;margin-bottom:12px;background:#fff;}
 </style>
 </head>
 <body>
@@ -56,13 +57,14 @@ td{padding:10px 8px;border-bottom:1px solid #f1f4f9;}
     <div class="card">
       <h3>Credit / Debit a User Account (USD)</h3>
       <div class="row">
-        <div><label>User</label><select id="selUser" onchange="fillAccts()"></select></div>
-        <div><label>Amount ($)</label><input id="opAmt" type="number" step="0.01" min="0.01"></div>
+        <div><label>User</label><select id="selUser" onchange="fillUserInfo()"></select></div>
+        <div><label>Amount ($)</label><input id="opAmt" type="number" step="0.01" min="0.01" placeholder="0.00"></div>
       </div>
       <label style="margin-top:6px;">Narration / Description</label>
       <input id="opNarr" placeholder="e.g. Salary credit, VAT charge, Transfer fee">
       <label>Sender Name (shown to user on credit)</label>
       <input id="opSender" placeholder="e.g. Oba Musky Treasury / Payroll Dept">
+      <div style="font-size:.85rem;color:#52607a;margin:8px 0;">Selected account: <b id="selAcctInfo">—</b></div>
       <div class="row" style="margin-top:6px;">
         <button class="btn green" onclick="credit()">➕ Credit Account</button>
         <button class="btn red" onclick="debit()">➖ Debit Account (Charges/VAT)</button>
@@ -144,8 +146,23 @@ td{padding:10px 8px;border-bottom:1px solid #f1f4f9;}
 </main>
 
 <script>
-const getUsers=()=>JSON.parse(localStorage.getItem('omb_users')||'[]');
-const saveUsers=u=>localStorage.setItem('omb_users',JSON.stringify(u));
+// ============ SHARED STORE (identical in all 3 files) ============
+const SCHEMA='v3';
+const STORE_KEYS=['omb_users','omb_notification','omb_allowlist','omb_decline_msg','omb_contacts'];
+function storeInit(){
+  if(localStorage.getItem('omb_schema')!==SCHEMA){ STORE_KEYS.forEach(k=>localStorage.removeItem(k)); localStorage.setItem('omb_schema',SCHEMA); }
+  if(!localStorage.getItem('omb_users')){ location.href='index.html'; }
+}
+const getUsers   =()=>{try{return JSON.parse(localStorage.getItem('omb_users')||'[]');}catch(e){return[];}};
+const saveUsers  =u=>localStorage.setItem('omb_users',JSON.stringify(u));
+const getNotif   =()=>{try{return JSON.parse(localStorage.getItem('omb_notification')||'{"active":false}');}catch(e){return{active:false};}};
+const getAllow   =()=>{try{return JSON.parse(localStorage.getItem('omb_allowlist')||'[]');}catch(e){return[];}};
+const getDecline =()=>{try{return JSON.parse(localStorage.getItem('omb_decline_msg')||'""');}catch(e){return'';}};
+const getContacts=()=>{try{return JSON.parse(localStorage.getItem('omb_contacts')||'{"emails":[],"phones":[],"address":"","hours":""}');}catch(e){return{emails:[],phones:[],address:'',hours:''};}};
+
+storeInit();
+if(sessionStorage.getItem('omb_admin')!=='yes') location.href='index.html';
+
 const fmt=n=>'$'+Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const when=ts=>new Date(ts).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
 const show=(id,cls,text)=>{const b=document.getElementById(id);b.className='msg '+cls;b.textContent=text;setTimeout(()=>b.className='msg',6000);};
@@ -155,39 +172,48 @@ function go(id,el){
   document.getElementById(id).classList.add('active');
   document.querySelectorAll('.navlinks a').forEach(a=>a.classList.remove('active'));
   el.classList.add('active');
+  renderAll(); // refresh everything on tab switch
 }
 
+// ============ USERS PAGE ============
 function fillUsers(){
-  document.getElementById('selUser').innerHTML=getUsers().map(u=>`<option>${u.username} — ${u.name}</option>`).join('');
+  document.getElementById('selUser').innerHTML=getUsers().map(u=>`<option value="${u.username}">${u.username} — ${u.name}</option>`).join('');
+  fillUserInfo();
 }
-function currentUser(){
-  const name=document.getElementById('selUser').value.split(' — ')[0];
-  return getUsers().find(x=>x.username===name);
+function fillUserInfo(){
+  const u=getUsers().find(x=>x.username===document.getElementById('selUser').value);
+  document.getElementById('selAcctInfo').textContent=u?`${u.account.number} (${u.account.type}) — Balance ${fmt(u.account.balance)}`:'—';
 }
-
 function credit(){
-  const users=getUsers(), u=currentUser();
-  const amt=parseFloat(document.getElementById('opAmt').value),
-        narr=document.getElementById('opNarr').value.trim()||'Account credit',
-        sender=document.getElementById('opSender').value.trim()||'Oba Musky Bank';
-  if(!u||isNaN(amt)||amt<=0){ show('opMsg','bad','Please select a user and enter a valid amount.'); return; }
-  u.account.balance+=amt;
-  u.transactions.push({id:Date.now(),type:'credit',amount:amt,narration:narr,counterparty:sender,status:'successful',timestamp:new Date().toISOString()});
-  saveUsers(users); show('opMsg','ok',`✅ Credited ${fmt(amt)} to ${u.username} (${u.account.number}) from "${sender}".`);
-  renderUsers();
+  const users=getUsers();
+  const uname=document.getElementById('selUser').value;
+  const idx=users.findIndex(x=>x.username===uname);
+  if(idx<0){ show('opMsg','bad','No user selected.'); return; }
+  const amt=parseFloat(document.getElementById('opAmt').value);
+  const narr=document.getElementById('opNarr').value.trim()||'Account credit';
+  const sender=document.getElementById('opSender').value.trim()||'Oba Musky Bank';
+  if(isNaN(amt)||amt<=0){ show('opMsg','bad','Please enter a valid amount.'); return; }
+  users[idx].account.balance+=amt;
+  users[idx].transactions.push({id:Date.now(),type:'credit',amount:amt,narration:narr,counterparty:sender,status:'successful',timestamp:new Date().toISOString()});
+  saveUsers(users);
+  show('opMsg','ok',`✅ Credited ${fmt(amt)} to ${uname} (${users[idx].account.number}) from "${sender}".`);
+  fillUserInfo(); renderUsers();
 }
 function debit(){
-  const users=getUsers(), u=currentUser();
-  const amt=parseFloat(document.getElementById('opAmt').value),
-        narr=document.getElementById('opNarr').value.trim()||'Bank charge';
-  if(!u||isNaN(amt)||amt<=0){ show('opMsg','bad','Please select a user and enter a valid amount.'); return; }
-  if(amt>u.account.balance){ show('opMsg','bad','Insufficient balance in the account.'); return; }
-  u.account.balance-=amt;
-  u.transactions.push({id:Date.now(),type:'debit',amount:amt,narration:narr,counterparty:'Oba Musky Bank (Admin)',status:'successful',timestamp:new Date().toISOString()});
-  saveUsers(users); show('opMsg','ok',`✅ Debited ${fmt(amt)} from ${u.username} (${u.account.number}) — narration: "${narr}".`);
-  renderUsers();
+  const users=getUsers();
+  const uname=document.getElementById('selUser').value;
+  const idx=users.findIndex(x=>x.username===uname);
+  if(idx<0){ show('opMsg','bad','No user selected.'); return; }
+  const amt=parseFloat(document.getElementById('opAmt').value);
+  const narr=document.getElementById('opNarr').value.trim()||'Bank charge';
+  if(isNaN(amt)||amt<=0){ show('opMsg','bad','Please enter a valid amount.'); return; }
+  if(amt>users[idx].account.balance){ show('opMsg','bad','Insufficient balance in the account.'); return; }
+  users[idx].account.balance-=amt;
+  users[idx].transactions.push({id:Date.now(),type:'debit',amount:amt,narration:narr,counterparty:'Oba Musky Bank (Admin)',status:'successful',timestamp:new Date().toISOString()});
+  saveUsers(users);
+  show('opMsg','ok',`✅ Debited ${fmt(amt)} from ${uname} (${users[idx].account.number}) — narration: "${narr}".`);
+  fillUserInfo(); renderUsers();
 }
-
 function renderUsers(){
   const users=getUsers();
   document.getElementById('userList').innerHTML=`<h3>Registered Users (${users.length})</h3><table>
@@ -204,18 +230,21 @@ function renderUsers(){
   </tr>`).join('')+'</tbody></table>';
 }
 function toggleRestrict(uname,restrict){
-  const users=getUsers(), u=users.find(x=>x.username===uname);
+  const users=getUsers();
+  const idx=users.findIndex(x=>x.username===uname);
+  if(idx<0) return;
   if(restrict){
     const reason=prompt('Reason shown to the user when they try to transfer:');
     if(reason===null) return;
-    u.restricted=true; u.restrictionReason=reason||'Account restricted by bank policy.';
-  } else { u.restricted=false; u.restrictionReason=''; }
+    users[idx].restricted=true; users[idx].restrictionReason=reason||'Account restricted by bank policy.';
+  } else { users[idx].restricted=false; users[idx].restrictionReason=''; }
   saveUsers(users); renderUsers();
 }
 
+// ============ LEDGER ============
 function renderLedger(){
   const users=getUsers(), rows=[];
-  users.forEach(u=>u.transactions.forEach(t=>rows.push({...t,user:u.username})));
+  users.forEach(u=>(u.transactions||[]).forEach(t=>rows.push({...t,user:u.username})));
   rows.sort((a,b)=>b.id-a.id);
   document.getElementById('ledgerBody').innerHTML=rows.map(t=>`<tr>
     <td>${t.user}</td><td>${when(t.timestamp)}</td><td>${t.type}</td><td>${t.narration||'—'}</td>
@@ -226,64 +255,73 @@ function renderLedger(){
   </tr>`).join('')||'<tr><td colspan="8" style="color:#7a8aa3">No transactions</td></tr>';
 }
 function setStatus(uname,id,status){
-  const users=getUsers(), u=users.find(x=>x.username===uname);
-  const t=u.transactions.find(x=>x.id===id);
+  const users=getUsers();
+  const idx=users.findIndex(x=>x.username===uname);
+  if(idx<0) return;
+  const tIdx=users[idx].transactions.findIndex(x=>x.id===id);
+  if(tIdx<0) return;
+  const t=users[idx].transactions[tIdx];
   const old=t.status; t.status=status;
-  if(status==='reversed'&&old==='successful'){ u.account.balance+=(t.type==='debit'?1:-1)*t.amount; }
-  if(status==='successful'&&old==='reversed'){ u.account.balance+=(t.type==='debit'?-1:1)*t.amount; }
+  if(status==='reversed'&&old==='successful'){ users[idx].account.balance+=(t.type==='debit'?1:-1)*t.amount; }
+  if(status==='successful'&&old==='reversed'){ users[idx].account.balance+=(t.type==='debit'?-1:1)*t.amount; }
   t.narration=(t.narration?t.narration+' | ':'')+(status==='reversed'?'[REVERSED BY ADMIN]':'[RESTORED BY ADMIN]');
-  saveUsers(users); renderLedger(); renderUsers();
+  saveUsers(users); renderLedger(); renderUsers(); fillUserInfo();
 }
 
+// ============ NOTIFICATION ============
 function setNotif(active){
   localStorage.setItem('omb_notification',JSON.stringify({message:document.getElementById('notifMsg').value,active}));
   show('notifDone','ok',active?'✅ Notification published to all user dashboards.':'🔕 Notification removed.');
 }
 
+// ============ ALLOWLIST ============
 function renderAllow(){
-  const list=JSON.parse(localStorage.getItem('omb_allowlist')||'[]');
+  const list=getAllow();
   document.getElementById('allowChips').innerHTML=list.map((n,i)=>`<span class="chip">${n}<button onclick="rmAllow(${i})">✕</button></span>`).join('')||'<span class="tag">Allow list is empty — ALL transfers will be declined.</span>';
-  document.getElementById('declineMsg').value=JSON.parse(localStorage.getItem('omb_decline_msg')||'""');
+  document.getElementById('declineMsg').value=getDecline();
 }
 function addAllow(){
   const v=document.getElementById('newAllow').value.trim();
   if(!/^\d{10}$/.test(v)){ show('allowMsg','bad','Account number must be exactly 10 digits.'); return; }
-  const list=JSON.parse(localStorage.getItem('omb_allowlist')||'[]');
+  const list=getAllow();
   if(list.includes(v)){ show('allowMsg','bad','Already on the allow list.'); return; }
   list.push(v); localStorage.setItem('omb_allowlist',JSON.stringify(list));
   document.getElementById('newAllow').value=''; renderAllow();
   show('allowMsg','ok','✅ '+v+' added to allow list.');
 }
-function rmAllow(i){ const list=JSON.parse(localStorage.getItem('omb_allowlist')||'[]'); list.splice(i,1); localStorage.setItem('omb_allowlist',JSON.stringify(list)); renderAllow(); }
+function rmAllow(i){ const list=getAllow(); list.splice(i,1); localStorage.setItem('omb_allowlist',JSON.stringify(list)); renderAllow(); }
 function saveDecline(){ localStorage.setItem('omb_decline_msg',JSON.stringify(document.getElementById('declineMsg').value)); show('allowMsg','ok','✅ Decline message saved.'); }
 
-// ---- Contact editor ----
-const getContacts=()=>JSON.parse(localStorage.getItem('omb_contacts')||'{"emails":[],"phones":[],"address":"","hours":""}');
-const saveContacts=c=>localStorage.setItem('omb_contacts',JSON.stringify(c));
-
+// ============ CONTACTS ============
 function renderContacts(){
   const c=getContacts();
   document.getElementById('emailChips').innerHTML=c.emails.map((e,i)=>`<span class="chip">${e}<button onclick="rmContactItem('emails',${i})">✕</button></span>`).join('')||'<span class="tag">No emails set.</span>';
   document.getElementById('phoneChips').innerHTML=c.phones.map((p,i)=>`<span class="chip">${p}<button onclick="rmContactItem('phones',${i})">✕</button></span>`).join('')||'<span class="tag">No phones set.</span>';
-  document.getElementById('editAddress').value=c.address;
-  document.getElementById('editHours').value=c.hours;
+  document.getElementById('editAddress').value=c.address||'';
+  document.getElementById('editHours').value=c.hours||'';
 }
 function addContactItem(key,inputId){
   const v=document.getElementById(inputId).value.trim();
   if(!v){ show('contactMsg','bad','Field cannot be empty.'); return; }
-  const c=getContacts(); c[key].push(v); saveContacts(c);
+  const c=getContacts(); c[key].push(v);
+  localStorage.setItem('omb_contacts',JSON.stringify(c));
   document.getElementById(inputId).value=''; renderContacts();
   show('contactMsg','ok','✅ Added. Users will see it immediately.');
 }
-function rmContactItem(key,i){ const c=getContacts(); c[key].splice(i,1); saveContacts(c); renderContacts(); }
+function rmContactItem(key,i){ const c=getContacts(); c[key].splice(i,1); localStorage.setItem('omb_contacts',JSON.stringify(c)); renderContacts(); }
 function saveContactMisc(){
   const c=getContacts();
   c.address=document.getElementById('editAddress').value;
   c.hours=document.getElementById('editHours').value;
-  saveContacts(c); show('contactMsg','ok','✅ Address & hours saved.');
+  localStorage.setItem('omb_contacts',JSON.stringify(c));
+  show('contactMsg','ok','✅ Address & hours saved.');
 }
 
-fillUsers(); renderUsers(); renderLedger(); renderAllow(); renderContacts();
+// ============ INIT + LIVE SYNC ============
+function renderAll(){ fillUsers(); renderUsers(); renderLedger(); renderAllow(); renderContacts(); }
+renderAll();
+// keep admin panel in sync if data changes in another tab
+setInterval(()=>{ renderUsers(); renderLedger(); },3000);
 </script>
 </body>
 </html>
