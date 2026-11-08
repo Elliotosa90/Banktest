@@ -76,49 +76,69 @@ input:focus { border-color:#1d4e89; box-shadow:0 0 0 3px rgba(29,78,137,.15); }
 </div>
 
 <script>
+// ============ SHARED STORE (identical in all 3 files) ============
+const SCHEMA='v3';
+const STORE_KEYS=['omb_users','omb_notification','omb_allowlist','omb_decline_msg','omb_contacts'];
+const DEFAULTS={
+  users:[
+    {username:'john',password:'1234',name:'John Okafor',phone:'+1 (555) 111-2222',
+     account:{number:'0123456789',type:'Checking',currency:'USD',balance:2500.00},
+     transactions:[{id:1,type:'credit',amount:500,narration:'Salary',counterparty:'Acme Corp Payroll',status:'successful',timestamp:new Date().toISOString()}],
+     restricted:false,restrictionReason:''},
+    {username:'jane',password:'1234',name:'Jane Adeyemi',phone:'+1 (555) 333-4444',
+     account:{number:'1122334455',type:'Checking',currency:'USD',balance:1180.50},
+     transactions:[],
+     restricted:false,restrictionReason:''}
+  ],
+  notification:{message:'Welcome to Oba Musky Bank — experience seamless banking today!',active:true},
+  allowlist:['0123456789','1122334455','5566778899'],
+  declineMsg:'This beneficiary account is currently not accepting transfers. Please contact support.',
+  contacts:{emails:['support@obamuskybank.com','complaints@obamuskybank.com'],
+            phones:['+1 (700) OBA-MUSKY','+1 (212) 555-9900'],
+            address:'25 Harbor Avenue, Suite 400, New York, NY 10005',
+            hours:'Mon–Fri: 8am – 6pm EST'}
+};
+function storeInit(){
+  if(localStorage.getItem('omb_schema')!==SCHEMA){
+    STORE_KEYS.forEach(k=>localStorage.removeItem(k));
+    localStorage.setItem('omb_schema',SCHEMA);
+  }
+  if(!localStorage.getItem('omb_users')){
+    localStorage.setItem('omb_users',JSON.stringify(DEFAULTS.users));
+    localStorage.setItem('omb_notification',JSON.stringify(DEFAULTS.notification));
+    localStorage.setItem('omb_allowlist',JSON.stringify(DEFAULTS.allowlist));
+    localStorage.setItem('omb_decline_msg',JSON.stringify(DEFAULTS.declineMsg));
+    localStorage.setItem('omb_contacts',JSON.stringify(DEFAULTS.contacts));
+  }
+}
+const getUsers   =()=>{try{return JSON.parse(localStorage.getItem('omb_users')||'[]');}catch(e){return[];}};
+const saveUsers  =u=>localStorage.setItem('omb_users',JSON.stringify(u));
+const getNotif   =()=>{try{return JSON.parse(localStorage.getItem('omb_notification')||'{"active":false}');}catch(e){return{active:false};}};
+const getAllow   =()=>{try{return JSON.parse(localStorage.getItem('omb_allowlist')||'[]');}catch(e){return[];}};
+const getDecline =()=>{try{return JSON.parse(localStorage.getItem('omb_decline_msg')||'""');}catch(e){return'';}};
+const getContacts=()=>{try{return JSON.parse(localStorage.getItem('omb_contacts')||'{"emails":[],"phones":[],"address":"","hours":""}');}catch(e){return{emails:[],phones:[],address:'',hours:''};}};
+
+storeInit();
+
+// ============ LOGIN ============
 let role='user';
 function setRole(r){ role=r;
   document.getElementById('roleUser').classList.toggle('sel',r==='user');
   document.getElementById('roleAdmin').classList.toggle('sel',r==='admin');
 }
-
-// ---- Seed data on first run ----
-if(!localStorage.getItem('omb_users')){
-  const users=[
-    {username:'john',password:'1234',name:'John Okafor',phone:'+1 (555) 111-2222',
-     account:{number:'0123456789',type:'Checking',currency:'USD',balance:2500.00},
-     transactions:[{id:Date.now(),type:'credit',amount:500,narration:'Salary',counterparty:'Acme Corp Payroll',status:'successful',timestamp:new Date().toISOString()}],
-     restricted:false, restrictionReason:''},
-    {username:'jane',password:'1234',name:'Jane Adeyemi',phone:'+1 (555) 333-4444',
-     account:{number:'1122334455',type:'Checking',currency:'USD',balance:1180.50},
-     transactions:[],restricted:false, restrictionReason:''}
-  ];
-  localStorage.setItem('omb_users',JSON.stringify(users));
-  localStorage.setItem('omb_notification',JSON.stringify({message:'Welcome to Oba Musky Bank — experience seamless banking today!',active:true}));
-  localStorage.setItem('omb_allowlist',JSON.stringify(['0123456789','1122334455','5566778899']));
-  localStorage.setItem('omb_decline_msg',JSON.stringify('This beneficiary account is currently not accepting transfers. Please contact support.'));
-  localStorage.setItem('omb_contacts',JSON.stringify({
-    emails:['support@obamuskybank.com','complaints@obamuskybank.com'],
-    phones:['+1 (700) OBA-MUSKY','+1 (212) 555-9900'],
-    address:'25 Harbor Avenue, Suite 400, New York, NY 10005',
-    hours:'Mon–Fri: 8am – 6pm EST'
-  }));
-}
-
 function doLogin(e){
   e.preventDefault();
   const u=document.getElementById('username').value.trim(), p=document.getElementById('password').value;
   if(role==='admin'){
-    if(u==='admin'&&p==='admin123'){ location.href='admin.html'; return false; }
+    if(u==='admin'&&p==='admin123'){ sessionStorage.setItem('omb_admin','yes'); location.href='admin.html'; return false; }
     document.getElementById('err').textContent='Invalid admin credentials.'; return false;
   }
-  const users=JSON.parse(localStorage.getItem('omb_users')||'[]');
-  const f=users.find(x=>x.username===u&&x.password===p);
+  const f=getUsers().find(x=>x.username===u&&x.password===p);
   if(f){ sessionStorage.setItem('omb_session',u); location.href='users.html'; return false; }
   document.getElementById('err').textContent='Invalid username or password.'; return false;
 }
 
-// ---- Carousel ----
+// ============ CAROUSEL ============
 const slides=document.querySelectorAll('.slide'), dots=document.querySelectorAll('.dot');
 let cur=0;
 function show(i){ slides.forEach((s,j)=>s.classList.toggle('active',j===i)); dots.forEach((d,j)=>d.classList.toggle('active',j===i)); cur=i; }
