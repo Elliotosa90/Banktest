@@ -32,8 +32,8 @@ th{text-align:left;color:#7a8aa3;font-size:.75rem;text-transform:uppercase;paddi
 td{padding:12px 8px;border-bottom:1px solid #f1f4f9;}
 form .field{margin-bottom:14px;}
 label{font-size:.8rem;font-weight:600;display:block;margin-bottom:5px;}
-input,select,textarea{width:100%;padding:12px;border:1.5px solid #dbe3ee;border-radius:9px;font-size:.95rem;outline:none;background:#fff;color:#12203a;}
-input:focus,select:focus{border-color:#1d4e89;}
+input{width:100%;padding:12px;border:1.5px solid #dbe3ee;border-radius:9px;font-size:.95rem;outline:none;background:#fff;color:#12203a;}
+input:focus{border-color:#1d4e89;}
 .btn{width:100%;padding:13px;border:none;border-radius:9px;background:linear-gradient(135deg,#f5a623,#e8890c);color:#fff;font-weight:700;font-size:1rem;cursor:pointer;}
 .btn:hover{filter:brightness(1.08);}
 .msg{padding:12px;border-radius:9px;margin-top:12px;font-size:.88rem;display:none;}
@@ -49,7 +49,7 @@ h2{margin:8px 0 18px;color:#0b1f3a;}
 </style>
 </head>
 <body>
-<div class="notif"><span class="dotp"></span><span id="notifText"></span></div>
+<div class="notif" id="notifBar"><span class="dotp"></span><span id="notifText"></span></div>
 <nav>
   <div class="brand"><div class="logo">$</div>Oba Musky Bank</div>
   <div class="navlinks">
@@ -118,100 +118,143 @@ h2{margin:8px 0 18px;color:#0b1f3a;}
 </main>
 
 <script>
+// ============ SHARED STORE (identical in all 3 files) ============
+const SCHEMA='v3';
+const STORE_KEYS=['omb_users','omb_notification','omb_allowlist','omb_decline_msg','omb_contacts'];
+function storeInit(){
+  if(localStorage.getItem('omb_schema')!==SCHEMA){ STORE_KEYS.forEach(k=>localStorage.removeItem(k)); localStorage.setItem('omb_schema',SCHEMA); }
+  if(!localStorage.getItem('omb_users')){ location.href='index.html'; }
+}
+const getUsers   =()=>{try{return JSON.parse(localStorage.getItem('omb_users')||'[]');}catch(e){return[];}};
+const saveUsers  =u=>localStorage.setItem('omb_users',JSON.stringify(u));
+const getNotif   =()=>{try{return JSON.parse(localStorage.getItem('omb_notification')||'{"active":false}');}catch(e){return{active:false};}};
+const getAllow   =()=>{try{return JSON.parse(localStorage.getItem('omb_allowlist')||'[]');}catch(e){return[];}};
+const getDecline =()=>{try{return JSON.parse(localStorage.getItem('omb_decline_msg')||'""');}catch(e){return'';}};
+const getContacts=()=>{try{return JSON.parse(localStorage.getItem('omb_contacts')||'{"emails":[],"phones":[],"address":"","hours":""}');}catch(e){return{emails:[],phones:[],address:'',hours:''};}};
+
+storeInit();
+
+// ============ SESSION ============
 const me=sessionStorage.getItem('omb_session');
-if(!me) location.href='index.html';
-const getUsers=()=>JSON.parse(localStorage.getItem('omb_users')||'[]');
-const saveUsers=u=>localStorage.setItem('omb_users',JSON.stringify(u));
-const user=()=>getUsers().find(x=>x.username===me);
+let meUser=null;
+function loadSession(){
+  if(!me){ location.href='index.html'; return false; }
+  meUser=getUsers().find(x=>x.username===me);
+  if(!meUser||!meUser.account||typeof meUser.account.balance!=='number'){
+    sessionStorage.removeItem('omb_session'); location.href='index.html'; return false;
+  }
+  return true;
+}
 const fmt=n=>'$'+Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const when=ts=>new Date(ts).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
 const badge=s=>`<span class="badge b-${s}">${s}</span>`;
 
-// notification bar (admin-controlled)
-const notif=JSON.parse(localStorage.getItem('omb_notification')||'{}');
-if(notif.active){ document.getElementById('notifText').textContent='📢 '+notif.message; }
-else document.querySelector('.notif').style.display='none';
-
 function render(){
-  const u=user();
-  document.getElementById('welcomeName').textContent=u.name;
-  document.getElementById('statBalance').textContent=fmt(u.account.balance);
-  document.getElementById('statTx').textContent=u.transactions.length;
-  document.getElementById('statStatus').textContent=u.restricted?'Restricted':'Active';
+  meUser=getUsers().find(x=>x.username===me);
+  if(!meUser){ logout(); return; }
+  document.getElementById('welcomeName').textContent=meUser.name;
+  document.getElementById('statBalance').textContent=fmt(meUser.account.balance);
+  document.getElementById('statTx').textContent=meUser.transactions.length;
+  document.getElementById('statStatus').textContent=meUser.restricted?'Restricted':'Active';
 
   document.getElementById('acctCardWrap').innerHTML=
-    `<div class="acct"><h4>${u.account.type} Account — ${u.account.currency}</h4>
-     <div class="num">•••• ${u.account.number.slice(-4)} <small style="opacity:.7">(${u.account.number})</small></div>
-     <div class="bal">${fmt(u.account.balance)}</div></div>`;
+    `<div class="acct"><h4>${meUser.account.type} Account — ${meUser.account.currency}</h4>
+     <div class="num">•••• ${meUser.account.number.slice(-4)} <small style="opacity:.7">(${meUser.account.number})</small></div>
+     <div class="bal">${fmt(meUser.account.balance)}</div></div>`;
 
   document.getElementById('fullAcct').innerHTML=
-    `<div class="acct"><h4>${u.account.type} Account</h4>
-     <div class="num">${u.account.number}</div>
-     <div class="bal">${fmt(u.account.balance)}</div>
-     <div style="margin-top:12px;font-size:.85rem;opacity:.85;">Account Holder: ${u.name} &nbsp;|&nbsp; Currency: ${u.account.currency}</div></div>`;
+    `<div class="acct"><h4>${meUser.account.type} Account</h4>
+     <div class="num">${meUser.account.number}</div>
+     <div class="bal">${fmt(meUser.account.balance)}</div>
+     <div style="margin-top:12px;font-size:.85rem;opacity:.85;">Account Holder: ${meUser.name} &nbsp;|&nbsp; Currency: ${meUser.account.currency}</div></div>`;
 
   const row=t=>`<tr><td>${when(t.timestamp)}</td><td>${t.type==='credit'?'⬇ Credit':'⬆ Debit'}</td><td>${t.narration||'—'}</td><td>${t.counterparty}</td><td style="color:${t.type==='credit'?'#1e8e4e':'#c0392b'}">${t.type==='credit'?'+':'-'}${fmt(t.amount)}</td><td>${badge(t.status)}</td></tr>`;
-  const sorted=[...u.transactions].sort((a,b)=>b.id-a.id);
+  const sorted=[...meUser.transactions].sort((a,b)=>b.id-a.id);
   document.getElementById('recentBody').innerHTML=sorted.slice(0,5).map(row).join('')||'<tr><td colspan="6" style="color:#7a8aa3">No transactions yet</td></tr>';
   document.getElementById('histBody').innerHTML=sorted.map(row).join('')||'<tr><td colspan="6" style="color:#7a8aa3">No transactions yet</td></tr>';
 
   const rb=document.getElementById('restrictedBox');
-  if(u.restricted){ rb.style.display='block'; rb.innerHTML=`<b>⚠ Account Restricted:</b> ${u.restrictionReason||'Contact customer support for details.'}`; }
+  if(meUser.restricted){ rb.style.display='block'; rb.innerHTML=`<b>⚠ Account Restricted:</b> ${meUser.restrictionReason||'Contact customer support for details.'}`; }
   else rb.style.display='none';
 
-  const c=JSON.parse(localStorage.getItem('omb_contacts')||'{"emails":[],"phones":[],"address":"","hours":""}');
+  const c=getContacts();
   document.getElementById('contactEmails').innerHTML=c.emails.map(e=>`<p>${e}</p>`).join('')||'<p>—</p>';
   document.getElementById('contactPhones').innerHTML=c.phones.map(p=>`<p>${p}</p>`).join('')||'<p>—</p>';
-  document.getElementById('contactAddress').innerHTML='<p>'+c.address+'</p>';
-  document.getElementById('contactHours').innerHTML=c.hours;
+  document.getElementById('contactAddress').innerHTML='<p>'+(c.address||'—')+'</p>';
+  document.getElementById('contactHours').innerHTML=c.hours||'';
 }
 
+// ============ NAV ============
 function go(id,el){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   document.querySelectorAll('.navlinks a').forEach(a=>a.classList.remove('active'));
   el.classList.add('active');
+  render(); // re-render so admin changes are visible on every tab
 }
 function logout(){ sessionStorage.removeItem('omb_session'); location.href='index.html'; return false; }
 
+// ============ TRANSFER ============
 function sendMoney(e){
   e.preventDefault();
-  const u=user(), users=getUsers();
-  const to=document.getElementById('toAcct').value.trim(),
-        amount=parseFloat(document.getElementById('amount').value),
-        narration=document.getElementById('narration').value.trim();
   const box=document.getElementById('txMsg');
   const show=(cls,text)=>{ box.className='msg '+cls; box.textContent=text; };
 
+  meUser=getUsers().find(x=>x.username===me);
+  if(!meUser){ logout(); return false; }
+
+  const to=document.getElementById('toAcct').value.trim(),
+        amount=parseFloat(document.getElementById('amount').value),
+        narration=document.getElementById('narration').value.trim(),
+        users=getUsers(),
+        idx=users.findIndex(x=>x.username===me),
+        u=users[idx];
+
   if(u.restricted){ show('bad','❌ Transfer blocked: '+(u.restrictionReason||'Your account is restricted from transfers.')); return false; }
-  if(!to||to.length!==10||!/^\d+$/.test(to)){ show('bad','❌ Beneficiary account number must be exactly 10 digits.'); return false; }
+  if(!/^\d{10}$/.test(to)){ show('bad','❌ Beneficiary account number must be exactly 10 digits.'); return false; }
   if(to===u.account.number){ show('bad','❌ You cannot transfer to your own account.'); return false; }
   if(isNaN(amount)||amount<=0){ show('bad','❌ Enter a valid amount.'); return false; }
   if(amount>u.account.balance){ show('bad','❌ Insufficient funds. Available: '+fmt(u.account.balance)); return false; }
 
-  // Admin allowlist check on beneficiary
-  const allow=JSON.parse(localStorage.getItem('omb_allowlist')||'[]');
-  if(!allow.includes(to)){
-    const dmsg=JSON.parse(localStorage.getItem('omb_decline_msg')||'"Transfer declined by beneficiary bank."');
+  // Admin allowlist check
+  if(!getAllow().includes(to)){
     u.transactions.push({id:Date.now(),type:'debit',amount,narration:narration||'Transfer',counterparty:to,status:'failed',timestamp:new Date().toISOString()});
-    saveUsers(users);
-    show('bad','❌ Transfer declined: '+dmsg); render(); return false;
+    users[idx]=u; saveUsers(users);
+    show('bad','❌ Transfer declined: '+(getDecline()||'Transfer declined by beneficiary bank.'));
+    render(); return false;
   }
 
   u.account.balance-=amount;
   u.transactions.push({id:Date.now(),type:'debit',amount,narration:narration||'Transfer',counterparty:to,status:'successful',timestamp:new Date().toISOString()});
-  // if beneficiary is another customer, credit them
-  const ben=users.find(x=>x.username!==u.username&&x.account.number===to);
-  if(ben){
-    ben.account.balance+=amount;
-    ben.transactions.push({id:Date.now()+1,type:'credit',amount,narration:narration||'Incoming transfer',counterparty:u.account.number+' ('+u.name+')',status:'successful',timestamp:new Date().toISOString()});
+
+  // Credit beneficiary if they are another customer
+  const bIdx=users.findIndex(x=>x.username!==u.username&&x.account&&x.account.number===to);
+  if(bIdx>-1){
+    users[bIdx].account.balance+=amount;
+    users[bIdx].transactions.push({id:Date.now()+1,type:'credit',amount,narration:narration||'Incoming transfer',counterparty:u.account.number+' ('+u.name+')',status:'successful',timestamp:new Date().toISOString()});
   }
   saveUsers(users);
   show('ok','✅ Transfer of '+fmt(amount)+' to '+to+' successful!');
   document.getElementById('amount').value=''; document.getElementById('narration').value='';
   render(); return false;
 }
-render();
+
+// ============ NOTIFICATION BAR ============
+(function(){
+  const n=getNotif();
+  if(n.active&&n.message){ document.getElementById('notifText').textContent='📢 '+n.message; }
+  else document.getElementById('notifBar').style.display='none';
+})();
+
+// poll for admin changes every 3 seconds so the dashboard updates live
+setInterval(()=>{
+  const n=getNotif();
+  const bar=document.getElementById('notifBar');
+  if(n.active&&n.message){ bar.style.display='flex'; document.getElementById('notifText').textContent='📢 '+n.message; }
+  else bar.style.display='none';
+},3000);
+
+if(loadSession()) render();
 </script>
 </body>
 </html>
