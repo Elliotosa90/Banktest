@@ -40,7 +40,7 @@ input:focus,select:focus{border-color:#1d4e89;}
 .msg.ok{display:block;background:#e6f9ee;color:#1e8e4e;}
 .msg.bad{display:block;background:#fdeaea;color:#c0392b;}
 h2{margin:8px 0 18px;color:#0b1f3a;}
-.restricted{background:#fdeaea;border:1px solid #f5b5b5;color:#c0392b;padding:14px;border-radius:10px;font-size:.9rem;display:none;}
+.restricted{background:#fdeaea;border:1px solid #f5b5b5;color:#c0392b;padding:14px;border-radius:10px;font-size:.9rem;display:none;margin-bottom:15px;}
 .contact-card p{margin:8px 0;color:#52607a;}
 .stats{display:flex;gap:14px;margin-bottom:20px;flex-wrap:wrap;}
 .stat{flex:1;min-width:150px;background:#fff;border-radius:12px;padding:16px;box-shadow:0 3px 12px rgba(13,40,80,.06);}
@@ -51,12 +51,12 @@ h2{margin:8px 0 18px;color:#0b1f3a;}
 <body>
 <div class="notif"><span class="dotp"></span><span id="notifText"></span></div>
 <nav>
-  <div class="brand"><div class="logo">₦</div>Oba Musky Bank</div>
+  <div class="brand"><div class="logo">$</div>Oba Musky Bank</div>
   <div class="navlinks">
     <a class="active" onclick="go('overview',this)">Overview</a>
     <a onclick="go('transfer',this)">Transfer</a>
     <a onclick="go('history',this)">Transactions</a>
-    <a onclick="go('accounts',this)">My Accounts</a>
+    <a onclick="go('account',this)">My Account</a>
     <a onclick="go('contact',this)">Contact</a>
     <a class="logout" onclick="logout()">Logout</a>
   </div>
@@ -66,11 +66,11 @@ h2{margin:8px 0 18px;color:#0b1f3a;}
   <div class="page active" id="overview">
     <h2>Welcome, <span id="welcomeName"></span> 👋</h2>
     <div class="stats">
-      <div class="stat"><b id="statBalance">—</b><br><span>Total Balance</span></div>
-      <div class="stat"><b id="statAccts">—</b><br><span>Accounts</span></div>
+      <div class="stat"><b id="statBalance">—</b><br><span>Account Balance (USD)</span></div>
       <div class="stat"><b id="statTx">—</b><br><span>Transactions</span></div>
+      <div class="stat"><b id="statStatus">—</b><br><span>Account Status</span></div>
     </div>
-    <div class="grid" id="acctCards"></div>
+    <div id="acctCardWrap"></div>
     <div class="card" style="margin-top:18px;">
       <h3 style="margin-bottom:10px;">Recent Activity</h3>
       <table><thead><tr><th>Date & Time</th><th>Type</th><th>Narration</th><th>Counterparty</th><th>Amount</th><th>Status</th></tr></thead>
@@ -82,11 +82,10 @@ h2{margin:8px 0 18px;color:#0b1f3a;}
   <div class="page" id="transfer">
     <div class="restricted" id="restrictedBox"></div>
     <div class="card" style="max-width:520px;">
-      <h3 style="margin-bottom:15px;">Send Money</h3>
+      <h3 style="margin-bottom:15px;">Send Money (USD)</h3>
       <form onsubmit="return sendMoney(event)">
-        <div class="field"><label>From Account</label><select id="fromAcct"></select></div>
+        <div class="field"><label>Amount ($)</label><input id="amount" type="number" min="0.01" step="0.01" placeholder="0.00" required></div>
         <div class="field"><label>Beneficiary Account Number</label><input id="toAcct" placeholder="10-digit account number" required></div>
-        <div class="field"><label>Amount (₦)</label><input id="amount" type="number" min="1" step="0.01" placeholder="0.00" required></div>
         <div class="field"><label>Narration (optional)</label><input id="narration" placeholder="e.g. Rent payment"></div>
         <button class="btn">Send Transfer</button>
         <div class="msg" id="txMsg"></div>
@@ -102,18 +101,18 @@ h2{margin:8px 0 18px;color:#0b1f3a;}
       <tbody id="histBody"></tbody></table></div>
   </div>
 
-  <!-- ACCOUNTS -->
-  <div class="page" id="accounts">
-    <h2>My Accounts</h2><div class="grid" id="fullAccts"></div>
+  <!-- ACCOUNT -->
+  <div class="page" id="account">
+    <h2>My Account</h2><div id="fullAcct"></div>
   </div>
 
   <!-- CONTACT -->
   <div class="page" id="contact">
     <h2>Contact Us</h2>
     <div class="grid">
-      <div class="card contact-card"><h3>📧 Email Support</h3><p>support@obamuskybank.com</p><p>complaints@obamuskybank.com</p></div>
-      <div class="card contact-card"><h3>📞 Phone Support</h3><p>+234 700 OBA MUSKY (622 6875)</p><p>+234 1 448 9900</p></div>
-      <div class="card contact-card"><h3>🏦 Head Office</h3><p>25 Marina Road, Lagos Island, Lagos, Nigeria</p><p>Mon–Fri: 8am – 6pm</p></div>
+      <div class="card contact-card"><h3>📧 Email Support</h3><div id="contactEmails"></div></div>
+      <div class="card contact-card"><h3>📞 Phone Support</h3><div id="contactPhones"></div></div>
+      <div class="card contact-card"><h3>🏦 Head Office</h3><div id="contactAddress"></div><div id="contactHours" style="margin-top:6px;color:#52607a;"></div></div>
     </div>
   </div>
 </main>
@@ -124,7 +123,7 @@ if(!me) location.href='index.html';
 const getUsers=()=>JSON.parse(localStorage.getItem('omb_users')||'[]');
 const saveUsers=u=>localStorage.setItem('omb_users',JSON.stringify(u));
 const user=()=>getUsers().find(x=>x.username===me);
-const fmt=n=>'₦'+Number(n).toLocaleString('en-NG',{minimumFractionDigits:2});
+const fmt=n=>'$'+Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const when=ts=>new Date(ts).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
 const badge=s=>`<span class="badge b-${s}">${s}</span>`;
 
@@ -136,19 +135,20 @@ else document.querySelector('.notif').style.display='none';
 function render(){
   const u=user();
   document.getElementById('welcomeName').textContent=u.name;
-  const total=u.accounts.reduce((s,a)=>s+a.balance,0);
-  document.getElementById('statBalance').textContent=fmt(total);
-  document.getElementById('statAccts').textContent=u.accounts.length;
+  document.getElementById('statBalance').textContent=fmt(u.account.balance);
   document.getElementById('statTx').textContent=u.transactions.length;
+  document.getElementById('statStatus').textContent=u.restricted?'Restricted':'Active';
 
-  const cards=u.accounts.map(a=>`<div class="acct"><h4>${a.type} Account</h4>
-    <div class="num">•••• ${a.number.slice(-4)} <small style="opacity:.7">(${a.number})</small></div>
-    <div class="bal">${fmt(a.balance)}</div></div>`).join('');
-  document.getElementById('acctCards').innerHTML=cards;
-  document.getElementById('fullAccts').innerHTML=u.accounts.map(a=>
-    `<div class="acct"><h4>${a.type} Account</h4><div class="num">${a.number}</div><div class="bal">${fmt(a.balance)}</div></div>`).join('');
+  document.getElementById('acctCardWrap').innerHTML=
+    `<div class="acct"><h4>${u.account.type} Account — ${u.account.currency}</h4>
+     <div class="num">•••• ${u.account.number.slice(-4)} <small style="opacity:.7">(${u.account.number})</small></div>
+     <div class="bal">${fmt(u.account.balance)}</div></div>`;
 
-  document.getElementById('fromAcct').innerHTML=u.accounts.map(a=>`<option value="${a.number}">${a.type} — ${a.number} (${fmt(a.balance)})</option>`).join('');
+  document.getElementById('fullAcct').innerHTML=
+    `<div class="acct"><h4>${u.account.type} Account</h4>
+     <div class="num">${u.account.number}</div>
+     <div class="bal">${fmt(u.account.balance)}</div>
+     <div style="margin-top:12px;font-size:.85rem;opacity:.85;">Account Holder: ${u.name} &nbsp;|&nbsp; Currency: ${u.account.currency}</div></div>`;
 
   const row=t=>`<tr><td>${when(t.timestamp)}</td><td>${t.type==='credit'?'⬇ Credit':'⬆ Debit'}</td><td>${t.narration||'—'}</td><td>${t.counterparty}</td><td style="color:${t.type==='credit'?'#1e8e4e':'#c0392b'}">${t.type==='credit'?'+':'-'}${fmt(t.amount)}</td><td>${badge(t.status)}</td></tr>`;
   const sorted=[...u.transactions].sort((a,b)=>b.id-a.id);
@@ -158,6 +158,12 @@ function render(){
   const rb=document.getElementById('restrictedBox');
   if(u.restricted){ rb.style.display='block'; rb.innerHTML=`<b>⚠ Account Restricted:</b> ${u.restrictionReason||'Contact customer support for details.'}`; }
   else rb.style.display='none';
+
+  const c=JSON.parse(localStorage.getItem('omb_contacts')||'{"emails":[],"phones":[],"address":"","hours":""}');
+  document.getElementById('contactEmails').innerHTML=c.emails.map(e=>`<p>${e}</p>`).join('')||'<p>—</p>';
+  document.getElementById('contactPhones').innerHTML=c.phones.map(p=>`<p>${p}</p>`).join('')||'<p>—</p>';
+  document.getElementById('contactAddress').innerHTML='<p>'+c.address+'</p>';
+  document.getElementById('contactHours').innerHTML=c.hours;
 }
 
 function go(id,el){
@@ -171,37 +177,34 @@ function logout(){ sessionStorage.removeItem('omb_session'); location.href='inde
 function sendMoney(e){
   e.preventDefault();
   const u=user(), users=getUsers();
-  const from=document.getElementById('fromAcct').value,
-        to=document.getElementById('toAcct').value.trim(),
+  const to=document.getElementById('toAcct').value.trim(),
         amount=parseFloat(document.getElementById('amount').value),
         narration=document.getElementById('narration').value.trim();
   const box=document.getElementById('txMsg');
   const show=(cls,text)=>{ box.className='msg '+cls; box.textContent=text; };
 
   if(u.restricted){ show('bad','❌ Transfer blocked: '+(u.restrictionReason||'Your account is restricted from transfers.')); return false; }
-  const acct=u.accounts.find(a=>a.number===from);
   if(!to||to.length!==10||!/^\d+$/.test(to)){ show('bad','❌ Beneficiary account number must be exactly 10 digits.'); return false; }
-  if(to===from){ show('bad','❌ You cannot transfer to the same account.'); return false; }
+  if(to===u.account.number){ show('bad','❌ You cannot transfer to your own account.'); return false; }
   if(isNaN(amount)||amount<=0){ show('bad','❌ Enter a valid amount.'); return false; }
-  if(amount>acct.balance){ show('bad','❌ Insufficient funds. Available: '+fmt(acct.balance)); return false; }
+  if(amount>u.account.balance){ show('bad','❌ Insufficient funds. Available: '+fmt(u.account.balance)); return false; }
 
   // Admin allowlist check on beneficiary
   const allow=JSON.parse(localStorage.getItem('omb_allowlist')||'[]');
   if(!allow.includes(to)){
     const dmsg=JSON.parse(localStorage.getItem('omb_decline_msg')||'"Transfer declined by beneficiary bank."');
-    u.transactions.push({id:Date.now(),type:'debit',amount,narration,counterparty:to,status:'failed',timestamp:new Date().toISOString()});
+    u.transactions.push({id:Date.now(),type:'debit',amount,narration:narration||'Transfer',counterparty:to,status:'failed',timestamp:new Date().toISOString()});
     saveUsers(users);
     show('bad','❌ Transfer declined: '+dmsg); render(); return false;
   }
 
-  acct.balance-=amount;
+  u.account.balance-=amount;
   u.transactions.push({id:Date.now(),type:'debit',amount,narration:narration||'Transfer',counterparty:to,status:'successful',timestamp:new Date().toISOString()});
   // if beneficiary is another customer, credit them
-  const ben=users.find(x=>x!==u&&x.accounts.some(a=>a.number===to));
+  const ben=users.find(x=>x.username!==u.username&&x.account.number===to);
   if(ben){
-    const ba=ben.accounts.find(a=>a.number===to);
-    ba.balance+=amount;
-    ben.transactions.push({id:Date.now()+1,type:'credit',amount,narration:narration||'Incoming transfer',counterparty:from+' ('+u.name+')',status:'successful',timestamp:new Date().toISOString()});
+    ben.account.balance+=amount;
+    ben.transactions.push({id:Date.now()+1,type:'credit',amount,narration:narration||'Incoming transfer',counterparty:u.account.number+' ('+u.name+')',status:'successful',timestamp:new Date().toISOString()});
   }
   saveUsers(users);
   show('ok','✅ Transfer of '+fmt(amount)+' to '+to+' successful!');
