@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Oba Musky Bank — Dashboard</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',Arial,sans-serif;}
+body{background:#f4f7fb;color:#12203a;}
+.notif{background:linear-gradient(90deg,#1d4e89,#0b1f3a);color:#fff;padding:11px 20px;font-size:.9rem;display:flex;align-items:center;gap:10px;}
+.notif .dotp{width:9px;height:9px;border-radius:50%;background:#f5a623;animation:p 1.2s infinite;}
+@keyframes p{50%{opacity:.3}}
+nav{background:#fff;display:flex;align-items:center;justify-content:space-between;padding:14px 30px;box-shadow:0 2px 10px rgba(0,0,0,.06);}
+.brand{display:flex;gap:10px;align-items:center;font-weight:800;font-size:1.1rem;color:#0b1f3a;}
+.logo{width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#0b1f3a,#1d4e89);color:#f5a623;display:flex;align-items:center;justify-content:center;}
+.navlinks{display:flex;gap:6px;}
+.navlinks a{padding:9px 16px;border-radius:8px;text-decoration:none;color:#52607a;font-weight:600;font-size:.9rem;cursor:pointer;}
+.navlinks a.active,.navlinks a:hover{background:#eef3fb;color:#1d4e89;}
+.logout{background:#c0392b;color:#fff !important;}
+main{max-width:1100px;margin:25px auto;padding:0 20px;}
+.page{display:none;} .page.active{display:block;}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:18px;}
+.card{background:#fff;border-radius:14px;padding:22px;box-shadow:0 4px 18px rgba(13,40,80,.07);}
+.acct{background:linear-gradient(135deg,#0b1f3a,#1d4e89);color:#fff;border-radius:14px;padding:24px;}
+.acct h4{font-weight:500;opacity:.8;font-size:.85rem;}
+.acct .num{font-size:1.35rem;letter-spacing:2px;margin:10px 0;}
+.acct .bal{font-size:1.9rem;font-weight:800;color:#f5a623;}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.72rem;font-weight:700;}
+.b-success{background:#e6f9ee;color:#1e8e4e;} .b-failed{background:#fdeaea;color:#c0392b;} .b-reversed{background:#fff4e0;color:#b9770e;}
+table{width:100%;border-collapse:collapse;font-size:.9rem;}
+th{text-align:left;color:#7a8aa3;font-size:.75rem;text-transform:uppercase;padding:10px 8px;border-bottom:2px solid #eef2f8;}
+td{padding:12px 8px;border-bottom:1px solid #f1f4f9;}
+form .field{margin-bottom:14px;}
+label{font-size:.8rem;font-weight:600;display:block;margin-bottom:5px;}
+input,select,textarea{width:100%;padding:12px;border:1.5px solid #dbe3ee;border-radius:9px;font-size:.95rem;outline:none;background:#fff;color:#12203a;}
+input:focus,select:focus{border-color:#1d4e89;}
+.btn{width:100%;padding:13px;border:none;border-radius:9px;background:linear-gradient(135deg,#f5a623,#e8890c);color:#fff;font-weight:700;font-size:1rem;cursor:pointer;}
+.btn:hover{filter:brightness(1.08);}
+.msg{padding:12px;border-radius:9px;margin-top:12px;font-size:.88rem;display:none;}
+.msg.ok{display:block;background:#e6f9ee;color:#1e8e4e;}
+.msg.bad{display:block;background:#fdeaea;color:#c0392b;}
+h2{margin:8px 0 18px;color:#0b1f3a;}
+.restricted{background:#fdeaea;border:1px solid #f5b5b5;color:#c0392b;padding:14px;border-radius:10px;font-size:.9rem;display:none;}
+.contact-card p{margin:8px 0;color:#52607a;}
+.stats{display:flex;gap:14px;margin-bottom:20px;flex-wrap:wrap;}
+.stat{flex:1;min-width:150px;background:#fff;border-radius:12px;padding:16px;box-shadow:0 3px 12px rgba(13,40,80,.06);}
+.stat b{font-size:1.3rem;color:#0b1f3a;} .stat span{font-size:.75rem;color:#7a8aa3;}
+@media(max-width:720px){.navlinks{flex-wrap:wrap;}}
+</style>
+</head>
+<body>
+<div class="notif"><span class="dotp"></span><span id="notifText"></span></div>
+<nav>
+  <div class="brand"><div class="logo">₦</div>Oba Musky Bank</div>
+  <div class="navlinks">
+    <a class="active" onclick="go('overview',this)">Overview</a>
+    <a onclick="go('transfer',this)">Transfer</a>
+    <a onclick="go('history',this)">Transactions</a>
+    <a onclick="go('accounts',this)">My Accounts</a>
+    <a onclick="go('contact',this)">Contact</a>
+    <a class="logout" onclick="logout()">Logout</a>
+  </div>
+</nav>
+<main>
+  <!-- OVERVIEW -->
+  <div class="page active" id="overview">
+    <h2>Welcome, <span id="welcomeName"></span> 👋</h2>
+    <div class="stats">
+      <div class="stat"><b id="statBalance">—</b><br><span>Total Balance</span></div>
+      <div class="stat"><b id="statAccts">—</b><br><span>Accounts</span></div>
+      <div class="stat"><b id="statTx">—</b><br><span>Transactions</span></div>
+    </div>
+    <div class="grid" id="acctCards"></div>
+    <div class="card" style="margin-top:18px;">
+      <h3 style="margin-bottom:10px;">Recent Activity</h3>
+      <table><thead><tr><th>Date & Time</th><th>Type</th><th>Narration</th><th>Counterparty</th><th>Amount</th><th>Status</th></tr></thead>
+      <tbody id="recentBody"></tbody></table>
+    </div>
+  </div>
+
+  <!-- TRANSFER -->
+  <div class="page" id="transfer">
+    <div class="restricted" id="restrictedBox"></div>
+    <div class="card" style="max-width:520px;">
+      <h3 style="margin-bottom:15px;">Send Money</h3>
+      <form onsubmit="return sendMoney(event)">
+        <div class="field"><label>From Account</label><select id="fromAcct"></select></div>
+        <div class="field"><label>Beneficiary Account Number</label><input id="toAcct" placeholder="10-digit account number" required></div>
+        <div class="field"><label>Amount (₦)</label><input id="amount" type="number" min="1" step="0.01" placeholder="0.00" required></div>
+        <div class="field"><label>Narration (optional)</label><input id="narration" placeholder="e.g. Rent payment"></div>
+        <button class="btn">Send Transfer</button>
+        <div class="msg" id="txMsg"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- HISTORY -->
+  <div class="page" id="history">
+    <h2>Transaction History</h2>
+    <div class="card"><table>
+      <thead><tr><th>Date & Time</th><th>Type</th><th>Narration</th><th>Counterparty</th><th>Amount</th><th>Status</th></tr></thead>
+      <tbody id="histBody"></tbody></table></div>
+  </div>
+
+  <!-- ACCOUNTS -->
+  <div class="page" id="accounts">
+    <h2>My Accounts</h2><div class="grid" id="fullAccts"></div>
+  </div>
+
+  <!-- CONTACT -->
+  <div class="page" id="contact">
+    <h2>Contact Us</h2>
+    <div class="grid">
+      <div class="card contact-card"><h3>📧 Email Support</h3><p>support@obamuskybank.com</p><p>complaints@obamuskybank.com</p></div>
+      <div class="card contact-card"><h3>📞 Phone Support</h3><p>+234 700 OBA MUSKY (622 6875)</p><p>+234 1 448 9900</p></div>
+      <div class="card contact-card"><h3>🏦 Head Office</h3><p>25 Marina Road, Lagos Island, Lagos, Nigeria</p><p>Mon–Fri: 8am – 6pm</p></div>
+    </div>
+  </div>
+</main>
+
+<script>
+const me=sessionStorage.getItem('omb_session');
+if(!me) location.href='index.html';
+const getUsers=()=>JSON.parse(localStorage.getItem('omb_users')||'[]');
+const saveUsers=u=>localStorage.setItem('omb_users',JSON.stringify(u));
+const user=()=>getUsers().find(x=>x.username===me);
+const fmt=n=>'₦'+Number(n).toLocaleString('en-NG',{minimumFractionDigits:2});
+const when=ts=>new Date(ts).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+const badge=s=>`<span class="badge b-${s}">${s}</span>`;
+
+// notification bar (admin-controlled)
+const notif=JSON.parse(localStorage.getItem('omb_notification')||'{}');
+if(notif.active){ document.getElementById('notifText').textContent='📢 '+notif.message; }
+else document.querySelector('.notif').style.display='none';
+
+function render(){
+  const u=user();
+  document.getElementById('welcomeName').textContent=u.name;
+  const total=u.accounts.reduce((s,a)=>s+a.balance,0);
+  document.getElementById('statBalance').textContent=fmt(total);
+  document.getElementById('statAccts').textContent=u.accounts.length;
+  document.getElementById('statTx').textContent=u.transactions.length;
+
+  const cards=u.accounts.map(a=>`<div class="acct"><h4>${a.type} Account</h4>
+    <div class="num">•••• ${a.number.slice(-4)} <small style="opacity:.7">(${a.number})</small></div>
+    <div class="bal">${fmt(a.balance)}</div></div>`).join('');
+  document.getElementById('acctCards').innerHTML=cards;
+  document.getElementById('fullAccts').innerHTML=u.accounts.map(a=>
+    `<div class="acct"><h4>${a.type} Account</h4><div class="num">${a.number}</div><div class="bal">${fmt(a.balance)}</div></div>`).join('');
+
+  document.getElementById('fromAcct').innerHTML=u.accounts.map(a=>`<option value="${a.number}">${a.type} — ${a.number} (${fmt(a.balance)})</option>`).join('');
+
+  const row=t=>`<tr><td>${when(t.timestamp)}</td><td>${t.type==='credit'?'⬇ Credit':'⬆ Debit'}</td><td>${t.narration||'—'}</td><td>${t.counterparty}</td><td style="color:${t.type==='credit'?'#1e8e4e':'#c0392b'}">${t.type==='credit'?'+':'-'}${fmt(t.amount)}</td><td>${badge(t.status)}</td></tr>`;
+  const sorted=[...u.transactions].sort((a,b)=>b.id-a.id);
+  document.getElementById('recentBody').innerHTML=sorted.slice(0,5).map(row).join('')||'<tr><td colspan="6" style="color:#7a8aa3">No transactions yet</td></tr>';
+  document.getElementById('histBody').innerHTML=sorted.map(row).join('')||'<tr><td colspan="6" style="color:#7a8aa3">No transactions yet</td></tr>';
+
+  const rb=document.getElementById('restrictedBox');
+  if(u.restricted){ rb.style.display='block'; rb.innerHTML=`<b>⚠ Account Restricted:</b> ${u.restrictionReason||'Contact customer support for details.'}`; }
+  else rb.style.display='none';
+}
+
+function go(id,el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.navlinks a').forEach(a=>a.classList.remove('active'));
+  el.classList.add('active');
+}
+function logout(){ sessionStorage.removeItem('omb_session'); location.href='index.html'; return false; }
+
+function sendMoney(e){
+  e.preventDefault();
+  const u=user(), users=getUsers();
+  const from=document.getElementById('fromAcct').value,
+        to=document.getElementById('toAcct').value.trim(),
+        amount=parseFloat(document.getElementById('amount').value),
+        narration=document.getElementById('narration').value.trim();
+  const box=document.getElementById('txMsg');
+  const show=(cls,text)=>{ box.className='msg '+cls; box.textContent=text; };
+
+  if(u.restricted){ show('bad','❌ Transfer blocked: '+(u.restrictionReason||'Your account is restricted from transfers.')); return false; }
+  const acct=u.accounts.find(a=>a.number===from);
+  if(!to||to.length!==10||!/^\d+$/.test(to)){ show('bad','❌ Beneficiary account number must be exactly 10 digits.'); return false; }
+  if(to===from){ show('bad','❌ You cannot transfer to the same account.'); return false; }
+  if(isNaN(amount)||amount<=0){ show('bad','❌ Enter a valid amount.'); return false; }
+  if(amount>acct.balance){ show('bad','❌ Insufficient funds. Available: '+fmt(acct.balance)); return false; }
+
+  // Admin allowlist check on beneficiary
+  const allow=JSON.parse(localStorage.getItem('omb_allowlist')||'[]');
+  if(!allow.includes(to)){
+    const dmsg=JSON.parse(localStorage.getItem('omb_decline_msg')||'"Transfer declined by beneficiary bank."');
+    u.transactions.push({id:Date.now(),type:'debit',amount,narration,counterparty:to,status:'failed',timestamp:new Date().toISOString()});
+    saveUsers(users);
+    show('bad','❌ Transfer declined: '+dmsg); render(); return false;
+  }
+
+  acct.balance-=amount;
+  u.transactions.push({id:Date.now(),type:'debit',amount,narration:narration||'Transfer',counterparty:to,status:'successful',timestamp:new Date().toISOString()});
+  // if beneficiary is another customer, credit them
+  const ben=users.find(x=>x!==u&&x.accounts.some(a=>a.number===to));
+  if(ben){
+    const ba=ben.accounts.find(a=>a.number===to);
+    ba.balance+=amount;
+    ben.transactions.push({id:Date.now()+1,type:'credit',amount,narration:narration||'Incoming transfer',counterparty:from+' ('+u.name+')',status:'successful',timestamp:new Date().toISOString()});
+  }
+  saveUsers(users);
+  show('ok','✅ Transfer of '+fmt(amount)+' to '+to+' successful!');
+  document.getElementById('amount').value=''; document.getElementById('narration').value='';
+  render(); return false;
+}
+render();
+</script>
+</body>
+</html>
