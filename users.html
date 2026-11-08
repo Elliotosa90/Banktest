@@ -34,6 +34,9 @@ form .field{margin-bottom:14px;}
 label{font-size:.8rem;font-weight:600;display:block;margin-bottom:5px;}
 input{width:100%;padding:12px;border:1.5px solid #dbe3ee;border-radius:9px;font-size:.95rem;outline:none;background:#fff;color:#12203a;}
 input:focus{border-color:#1d4e89;}
+.resolved{font-size:.85rem;padding:10px 12px;border-radius:9px;margin-top:6px;display:none;}
+.resolved.ok{display:block;background:#e6f9ee;color:#1e8e4e;}
+.resolved.warn{display:block;background:#fff4e0;color:#b9770e;}
 .btn{width:100%;padding:13px;border:none;border-radius:9px;background:linear-gradient(135deg,#f5a623,#e8890c);color:#fff;font-weight:700;font-size:1rem;cursor:pointer;}
 .btn:hover{filter:brightness(1.08);}
 .msg{padding:12px;border-radius:9px;margin-top:12px;font-size:.88rem;display:none;}
@@ -84,8 +87,16 @@ h2{margin:8px 0 18px;color:#0b1f3a;}
     <div class="card" style="max-width:520px;">
       <h3 style="margin-bottom:15px;">Send Money (USD)</h3>
       <form onsubmit="return sendMoney(event)">
+        <div class="field">
+          <label>Beneficiary Account Number</label>
+          <input id="toAcct" placeholder="10-digit account number" maxlength="10" oninput="resolveRecipient()">
+          <div class="resolved" id="recipientResolved"></div>
+        </div>
+        <div class="field">
+          <label>Recipient Name</label>
+          <input id="recipientName" placeholder="Recipient name (auto-filled)" autocomplete="off">
+        </div>
         <div class="field"><label>Amount ($)</label><input id="amount" type="number" min="0.01" step="0.01" placeholder="0.00" required></div>
-        <div class="field"><label>Beneficiary Account Number</label><input id="toAcct" placeholder="10-digit account number" required></div>
         <div class="field"><label>Narration (optional)</label><input id="narration" placeholder="e.g. Rent payment"></div>
         <button class="btn">Send Transfer</button>
         <div class="msg" id="txMsg"></div>
@@ -136,11 +147,10 @@ storeInit();
 
 // ============ SESSION ============
 const me=sessionStorage.getItem('omb_session');
-let meUser=null;
 function loadSession(){
   if(!me){ location.href='index.html'; return false; }
-  meUser=getUsers().find(x=>x.username===me);
-  if(!meUser||!meUser.account||typeof meUser.account.balance!=='number'){
+  const u=getUsers().find(x=>x.username===me);
+  if(!u||!u.account||typeof u.account.balance!=='number'){
     sessionStorage.removeItem('omb_session'); location.href='index.html'; return false;
   }
   return true;
@@ -150,31 +160,31 @@ const when=ts=>new Date(ts).toLocaleString('en-GB',{day:'2-digit',month:'short',
 const badge=s=>`<span class="badge b-${s}">${s}</span>`;
 
 function render(){
-  meUser=getUsers().find(x=>x.username===me);
-  if(!meUser){ logout(); return; }
-  document.getElementById('welcomeName').textContent=meUser.name;
-  document.getElementById('statBalance').textContent=fmt(meUser.account.balance);
-  document.getElementById('statTx').textContent=meUser.transactions.length;
-  document.getElementById('statStatus').textContent=meUser.restricted?'Restricted':'Active';
+  const u=getUsers().find(x=>x.username===me);
+  if(!u){ logout(); return; }
+  document.getElementById('welcomeName').textContent=u.name;
+  document.getElementById('statBalance').textContent=fmt(u.account.balance);
+  document.getElementById('statTx').textContent=u.transactions.length;
+  document.getElementById('statStatus').textContent=u.restricted?'Restricted':'Active';
 
   document.getElementById('acctCardWrap').innerHTML=
-    `<div class="acct"><h4>${meUser.account.type} Account — ${meUser.account.currency}</h4>
-     <div class="num">•••• ${meUser.account.number.slice(-4)} <small style="opacity:.7">(${meUser.account.number})</small></div>
-     <div class="bal">${fmt(meUser.account.balance)}</div></div>`;
+    `<div class="acct"><h4>${u.account.type} Account — ${u.account.currency}</h4>
+     <div class="num">•••• ${u.account.number.slice(-4)} <small style="opacity:.7">(${u.account.number})</small></div>
+     <div class="bal">${fmt(u.account.balance)}</div></div>`;
 
   document.getElementById('fullAcct').innerHTML=
-    `<div class="acct"><h4>${meUser.account.type} Account</h4>
-     <div class="num">${meUser.account.number}</div>
-     <div class="bal">${fmt(meUser.account.balance)}</div>
-     <div style="margin-top:12px;font-size:.85rem;opacity:.85;">Account Holder: ${meUser.name} &nbsp;|&nbsp; Currency: ${meUser.account.currency}</div></div>`;
+    `<div class="acct"><h4>${u.account.type} Account</h4>
+     <div class="num">${u.account.number}</div>
+     <div class="bal">${fmt(u.account.balance)}</div>
+     <div style="margin-top:12px;font-size:.85rem;opacity:.85;">Account Holder: ${u.name} &nbsp;|&nbsp; Currency: ${u.account.currency}</div></div>`;
 
   const row=t=>`<tr><td>${when(t.timestamp)}</td><td>${t.type==='credit'?'⬇ Credit':'⬆ Debit'}</td><td>${t.narration||'—'}</td><td>${t.counterparty}</td><td style="color:${t.type==='credit'?'#1e8e4e':'#c0392b'}">${t.type==='credit'?'+':'-'}${fmt(t.amount)}</td><td>${badge(t.status)}</td></tr>`;
-  const sorted=[...meUser.transactions].sort((a,b)=>b.id-a.id);
+  const sorted=[...u.transactions].sort((a,b)=>b.id-a.id);
   document.getElementById('recentBody').innerHTML=sorted.slice(0,5).map(row).join('')||'<tr><td colspan="6" style="color:#7a8aa3">No transactions yet</td></tr>';
   document.getElementById('histBody').innerHTML=sorted.map(row).join('')||'<tr><td colspan="6" style="color:#7a8aa3">No transactions yet</td></tr>';
 
   const rb=document.getElementById('restrictedBox');
-  if(meUser.restricted){ rb.style.display='block'; rb.innerHTML=`<b>⚠ Account Restricted:</b> ${meUser.restrictionReason||'Contact customer support for details.'}`; }
+  if(u.restricted){ rb.style.display='block'; rb.innerHTML=`<b>⚠ Account Restricted:</b> ${u.restrictionReason||'Contact customer support for details.'}`; }
   else rb.style.display='none';
 
   const c=getContacts();
@@ -190,9 +200,36 @@ function go(id,el){
   document.getElementById(id).classList.add('active');
   document.querySelectorAll('.navlinks a').forEach(a=>a.classList.remove('active'));
   el.classList.add('active');
-  render(); // re-render so admin changes are visible on every tab
+  render();
 }
 function logout(){ sessionStorage.removeItem('omb_session'); location.href='index.html'; return false; }
+
+// ============ RECIPIENT NAME AUTO-RESOLVE ============
+function resolveRecipient(){
+  const to=document.getElementById('toAcct').value.trim();
+  const box=document.getElementById('recipientResolved');
+  const nameInput=document.getElementById('recipientName');
+  box.className='resolved'; box.textContent='';
+  nameInput.value=''; nameInput.readOnly=false; nameInput.style.background='#fff';
+
+  if(!/^\d{10}$/.test(to)) return;
+
+  const known=getUsers().find(x=>x.account&&x.account.number===to);
+  if(known){
+    nameInput.value=known.name;
+    nameInput.readOnly=true; nameInput.style.background='#f4f7fb';
+    box.className='resolved ok';
+    box.textContent='✔ Recipient verified: '+known.name+' ('+known.account.type+' Account)';
+    return;
+  }
+  if(getAllow().includes(to)){
+    box.className='resolved warn';
+    box.textContent='✔ Account verified and able to receive transfers. Enter the recipient name manually.';
+  } else {
+    box.className='resolved warn';
+    box.textContent='⚠ This account is not on the approved receiving list — the transfer will likely be declined.';
+  }
+}
 
 // ============ TRANSFER ============
 function sendMoney(e){
@@ -200,59 +237,58 @@ function sendMoney(e){
   const box=document.getElementById('txMsg');
   const show=(cls,text)=>{ box.className='msg '+cls; box.textContent=text; };
 
-  meUser=getUsers().find(x=>x.username===me);
-  if(!meUser){ logout(); return false; }
+  const users=getUsers();
+  const idx=users.findIndex(x=>x.username===me);
+  if(idx<0){ logout(); return false; }
+  const u=users[idx];
 
-  const to=document.getElementById('toAcct').value.trim(),
-        amount=parseFloat(document.getElementById('amount').value),
-        narration=document.getElementById('narration').value.trim(),
-        users=getUsers(),
-        idx=users.findIndex(x=>x.username===me),
-        u=users[idx];
+  const to=document.getElementById('toAcct').value.trim();
+  let recipientName=document.getElementById('recipientName').value.trim();
+  const amount=parseFloat(document.getElementById('amount').value);
+  const narration=document.getElementById('narration').value.trim();
 
   if(u.restricted){ show('bad','❌ Transfer blocked: '+(u.restrictionReason||'Your account is restricted from transfers.')); return false; }
   if(!/^\d{10}$/.test(to)){ show('bad','❌ Beneficiary account number must be exactly 10 digits.'); return false; }
   if(to===u.account.number){ show('bad','❌ You cannot transfer to your own account.'); return false; }
+  if(!recipientName){ show('bad','❌ Recipient name is required. Enter the account number to auto-fetch it, or type the name manually.'); return false; }
   if(isNaN(amount)||amount<=0){ show('bad','❌ Enter a valid amount.'); return false; }
   if(amount>u.account.balance){ show('bad','❌ Insufficient funds. Available: '+fmt(u.account.balance)); return false; }
 
   // Admin allowlist check
   if(!getAllow().includes(to)){
-    u.transactions.push({id:Date.now(),type:'debit',amount,narration:narration||'Transfer',counterparty:to,status:'failed',timestamp:new Date().toISOString()});
-    users[idx]=u; saveUsers(users);
+    u.transactions.push({id:Date.now(),type:'debit',amount,narration:narration||'Transfer',counterparty:to+' — '+recipientName,status:'failed',timestamp:new Date().toISOString()});
+    saveUsers(users);
     show('bad','❌ Transfer declined: '+(getDecline()||'Transfer declined by beneficiary bank.'));
     render(); return false;
   }
 
   u.account.balance-=amount;
-  u.transactions.push({id:Date.now(),type:'debit',amount,narration:narration||'Transfer',counterparty:to,status:'successful',timestamp:new Date().toISOString()});
+  u.transactions.push({id:Date.now(),type:'debit',amount,narration:narration||'Transfer to '+recipientName,counterparty:to+' — '+recipientName,status:'successful',timestamp:new Date().toISOString()});
 
-  // Credit beneficiary if they are another customer
+  // Credit beneficiary if a registered customer
   const bIdx=users.findIndex(x=>x.username!==u.username&&x.account&&x.account.number===to);
   if(bIdx>-1){
     users[bIdx].account.balance+=amount;
     users[bIdx].transactions.push({id:Date.now()+1,type:'credit',amount,narration:narration||'Incoming transfer',counterparty:u.account.number+' ('+u.name+')',status:'successful',timestamp:new Date().toISOString()});
   }
   saveUsers(users);
-  show('ok','✅ Transfer of '+fmt(amount)+' to '+to+' successful!');
+  show('ok','✅ Transfer of '+fmt(amount)+' to '+recipientName+' ('+to+') successful!');
   document.getElementById('amount').value=''; document.getElementById('narration').value='';
+  document.getElementById('toAcct').value=''; document.getElementById('recipientName').value='';
+  document.getElementById('recipientName').readOnly=false; document.getElementById('recipientName').style.background='#fff';
+  document.getElementById('recipientResolved').className='resolved';
   render(); return false;
 }
 
 // ============ NOTIFICATION BAR ============
-(function(){
-  const n=getNotif();
-  if(n.active&&n.message){ document.getElementById('notifText').textContent='📢 '+n.message; }
-  else document.getElementById('notifBar').style.display='none';
-})();
-
-// poll for admin changes every 3 seconds so the dashboard updates live
-setInterval(()=>{
+function refreshNotif(){
   const n=getNotif();
   const bar=document.getElementById('notifBar');
   if(n.active&&n.message){ bar.style.display='flex'; document.getElementById('notifText').textContent='📢 '+n.message; }
   else bar.style.display='none';
-},3000);
+}
+refreshNotif();
+setInterval(()=>{ refreshNotif(); },3000);
 
 if(loadSession()) render();
 </script>
