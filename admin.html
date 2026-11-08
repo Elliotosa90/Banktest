@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Oba Musky Bank — Admin</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',Arial,sans-serif;}
+body{background:#f4f7fb;color:#12203a;}
+nav{background:#0b1f3a;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:14px 30px;}
+.brand{display:flex;gap:10px;align-items:center;font-weight:800;}
+.logo{width:40px;height:40px;border-radius:10px;background:#f5a623;color:#0b1f3a;display:flex;align-items:center;justify-content:center;}
+.navlinks{display:flex;gap:6px;}
+.navlinks a{padding:9px 16px;border-radius:8px;color:#c6d2e4;font-weight:600;font-size:.9rem;cursor:pointer;}
+.navlinks a.active,.navlinks a:hover{background:rgba(255,255,255,.12);color:#fff;}
+.logout{color:#ff9c93 !important;}
+main{max-width:1100px;margin:25px auto;padding:0 20px;}
+.page{display:none;} .page.active{display:block;}
+.card{background:#fff;border-radius:14px;padding:22px;box-shadow:0 4px 18px rgba(13,40,80,.07);margin-bottom:20px;}
+h2{margin:8px 0 18px;} h3{margin-bottom:12px;}
+label{font-size:.8rem;font-weight:600;display:block;margin-bottom:5px;}
+input,textarea{width:100%;padding:11px;border:1.5px solid #dbe3ee;border-radius:9px;font-size:.95rem;outline:none;margin-bottom:12px;}
+input:focus{border-color:#1d4e89;}
+.btn{padding:12px 20px;border:none;border-radius:9px;background:linear-gradient(135deg,#f5a623,#e8890c);color:#fff;font-weight:700;cursor:pointer;}
+.btn.blue{background:#1d4e89;} .btn.red{background:#c0392b;} .btn.green{background:#1e8e4e;}
+table{width:100%;border-collapse:collapse;font-size:.88rem;}
+th{text-align:left;color:#7a8aa3;font-size:.72rem;text-transform:uppercase;padding:9px 8px;border-bottom:2px solid #eef2f8;}
+td{padding:10px 8px;border-bottom:1px solid #f1f4f9;}
+.badge{padding:3px 10px;border-radius:20px;font-size:.72rem;font-weight:700;}
+.b-success{background:#e6f9ee;color:#1e8e4e;} .b-failed{background:#fdeaea;color:#c0392b;} .b-reversed{background:#fff4e0;color:#b9770e;}
+.b-restricted{background:#fdeaea;color:#c0392b;} .b-active{background:#e6f9ee;color:#1e8e4e;}
+.msg{padding:11px;border-radius:9px;margin-top:10px;font-size:.88rem;display:none;}
+.msg.ok{display:block;background:#e6f9ee;color:#1e8e4e;} .msg.bad{display:block;background:#fdeaea;color:#c0392b;}
+.row{display:flex;gap:10px;flex-wrap:wrap;} .row>*{flex:1;min-width:140px;}
+.chip{display:inline-flex;align-items:center;gap:8px;background:#eef3fb;padding:6px 12px;border-radius:20px;margin:4px;font-size:.85rem;}
+.chip button{border:none;background:#c0392b;color:#fff;border-radius:50%;width:20px;height:20px;cursor:pointer;font-size:.7rem;}
+.tag{font-size:.75rem;color:#7a8aa3;}
+</style>
+</head>
+<body>
+<nav>
+  <div class="brand"><div class="logo">🛡</div>Oba Musky Admin</div>
+  <div class="navlinks">
+    <a class="active" onclick="go('users',this)">Users</a>
+    <a onclick="go('ledger',this)">Transaction Ledger</a>
+    <a onclick="go('notify',this)">Notification Bar</a>
+    <a onclick="go('allow',this)">Allow List</a>
+    <a class="logout" onclick="location.href='index.html';return false;">Logout</a>
+  </div>
+</nav>
+<main>
+  <!-- USERS -->
+  <div class="page active" id="users">
+    <h2>Users & Account Operations</h2>
+    <div class="card">
+      <h3>Credit / Debit a User Account</h3>
+      <div class="row">
+        <div><label>User</label><select id="selUser" onchange="fillAccts()"></select></div>
+        <div><label>Account</label><select id="selAcct"></select></div>
+        <div><label>Amount (₦)</label><input id="opAmt" type="number" step="0.01" min="0.01"></div>
+      </div>
+      <label style="margin-top:6px;">Narration / Description</label>
+      <input id="opNarr" placeholder="e.g. Salary credit, VAT charge, Transfer fee">
+      <label>Sender Name (shown to user on credit)</label>
+      <input id="opSender" placeholder="e.g. Oba Musky Treasury / Payroll Dept">
+      <div class="row" style="margin-top:6px;">
+        <button class="btn green" onclick="credit()">➕ Credit Account</button>
+        <button class="btn red" onclick="debit()">➖ Debit Account (Charges/VAT)</button>
+      </div>
+      <div class="msg" id="opMsg"></div>
+    </div>
+    <div class="card" id="userList"></div>
+  </div>
+
+  <!-- LEDGER -->
+  <div class="page" id="ledger">
+    <h2>All Transactions</h2>
+    <div class="card"><table>
+      <thead><tr><th>User</th><th>Time</th><th>Type</th><th>Narration</th><th>Counterparty</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody id="ledgerBody"></tbody></table></div>
+  </div>
+
+  <!-- NOTIFICATION -->
+  <div class="page" id="notify">
+    <h2>Notification Bar Control</h2>
+    <div class="card">
+      <label>Notification message (shown at the top of every user dashboard)</label>
+      <textarea id="notifMsg" rows="2"></textarea>
+      <div class="row">
+        <button class="btn green" onclick="setNotif(true)">📢 Publish Notification</button>
+        <button class="btn red" onclick="setNotif(false)">🔕 Remove Notification</button>
+      </div>
+      <div class="msg" id="notifDone"></div>
+    </div>
+  </div>
+
+  <!-- ALLOWLIST -->
+  <div class="page" id="allow">
+    <h2>Beneficiary Allow List</h2>
+    <div class="card">
+      <p style="font-size:.88rem;color:#52607a;margin-bottom:12px;">Only account numbers on this list can receive successful transfers. Any other account will be declined with the custom error message below.</p>
+      <div class="row">
+        <div><label>Account number to allow</label><input id="newAllow" placeholder="10-digit account"></div>
+        <div style="align-self:end;"><button class="btn blue" onclick="addAllow()">Add to Allow List</button></div>
+      </div>
+      <div id="allowChips" style="margin:10px 0;"></div>
+      <div class="row">
+        <div><label>Custom decline error message (shown to users)</label><input id="declineMsg"></div>
+        <div style="align-self:end;"><button class="btn blue" onclick="saveDecline()">Save Message</button></div>
+      </div>
+      <div class="msg" id="allowMsg"></div>
+    </div>
+  </div>
+</main>
+
+<script>
+const getUsers=()=>JSON.parse(localStorage.getItem('omb_users')||'[]');
+const saveUsers=u=>localStorage.setItem('omb_users',JSON.stringify(u));
+const fmt=n=>'₦'+Number(n).toLocaleString('en-NG',{minimumFractionDigits:2});
+const when=ts=>new Date(ts).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+const show=(id,cls,text)=>{const b=document.getElementById(id);b.className='msg '+cls;b.textContent=text;setTimeout(()=>b.className='msg',6000);};
+
+function go(id,el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.navlinks a').forEach(a=>a.classList.remove('active'));
+  el.classList.add('active');
+}
+
+function fillUsers(){
+  document.getElementById('selUser').innerHTML=getUsers().map(u=>`<option>${u.username}</option>`).join('');
+  fillAccts();
+}
+function fillAccts(){
+  const u=getUsers().find(x=>x.username===document.getElementById('selUser').value);
+  if(u) document.getElementById('selAcct').innerHTML=u.accounts.map(a=>`<option>${a.number} (${a.type} — ${fmt(a.balance)})</option>`).join('');
+}
+function pickAcct(u){ const v=document.getElementById('selAcct').value; return u.accounts.find(a=>v.startsWith(a.number)); }
+
+function txMsg(ok,text){ show(ok?'opMsg':'opMsg',ok?'ok':'bad',text); }
+
+function credit(){
+  const users=getUsers(), u=users.find(x=>x.username===document.getElementById('selUser').value);
+  const amt=parseFloat(document.getElementById('opAmt').value),
+        narr=document.getElementById('opNarr').value.trim()||'Account credit',
+        sender=document.getElementById('opSender').value.trim()||'Oba Musky Bank';
+  const acct=pickAcct(u);
+  if(!u||!acct||isNaN(amt)||amt<=0){ txMsg(false,'Please select a user, account and valid amount.'); return; }
+  acct.balance+=amt;
+  u.transactions.push({id:Date.now(),type:'credit',amount:amt,narration:narr,counterparty:sender,status:'successful',timestamp:new Date().toISOString()});
+  saveUsers(users); txMsg(true,`✅ Credited ${fmt(amt)} to ${u.username} (${acct.number}) from "${sender}".`);
+  fillAccts(); renderUsers();
+}
+function debit(){
+  const users=getUsers(), u=users.find(x=>x.username===document.getElementById('selUser').value);
+  const amt=parseFloat(document.getElementById('opAmt').value),
+        narr=document.getElementById('opNarr').value.trim()||'Bank charge';
+  const acct=pickAcct(u);
+  if(!u||!acct||isNaN(amt)||amt<=0){ txMsg(false,'Please select a user, account and valid amount.'); return; }
+  if(amt>acct.balance){ txMsg(false,'Insufficient balance in selected account.'); return; }
+  acct.balance-=amt;
+  u.transactions.push({id:Date.now(),type:'debit',amount:amt,narration:narr,counterparty:'Oba Musky Bank (Admin)',status:'successful',timestamp:new Date().toISOString()});
+  saveUsers(users); txMsg(true,`✅ Debited ${fmt(amt)} from ${u.username} (${acct.number}) — narration: "${narr}".`);
+  fillAccts(); renderUsers();
+}
+
+function renderUsers(){
+  const users=getUsers();
+  document.getElementById('userList').innerHTML=`<h3>Registered Users (${users.length})</h3><table>
+  <thead><tr><th>User</th><th>Accounts & Balances</th><th>Status</th><th>Restriction Reason</th><th>Actions</th></tr></thead><tbody>`+
+  users.map(u=>`<tr>
+    <td><b>${u.name}</b><br><span class="tag">@${u.username} • ${u.phone||'—'}</span></td>
+    <td>${u.accounts.map(a=>`${a.number}<br><span class="tag">${a.type} — ${fmt(a.balance)}</span>`).join('<hr style="border:none;border-top:1px solid #f1f4f9;margin:6px 0;">')}</td>
+    <td><span class="badge ${u.restricted?'b-restricted':'b-active'}">${u.restricted?'Restricted':'Active'}</span></td>
+    <td style="max-width:160px;font-size:.8rem;">${u.restrictionReason||'—'}</td>
+    <td>${u.restricted
+      ?`<button class="btn green" style="padding:6px 12px;font-size:.8rem;" onclick="toggleRestrict('${u.username}',false)">Unrestrict</button>`
+      :`<button class="btn red" style="padding:6px 12px;font-size:.8rem;" onclick="toggleRestrict('${u.username}',true)">Restrict</button>`}</td>
+  </tr>`).join('')+'</tbody></table>';
+}
+function toggleRestrict(uname,restrict){
+  const users=getUsers(), u=users.find(x=>x.username===uname);
+  if(restrict){
+    const reason=prompt('Reason shown to the user when they try to transfer:');
+    if(reason===null) return;
+    u.restricted=true; u.restrictionReason=reason||'Account restricted by bank policy.';
+  } else { u.restricted=false; u.restrictionReason=''; }
+  saveUsers(users); renderUsers();
+}
+
+function renderLedger(){
+  const users=getUsers(), rows=[];
+  users.forEach(u=>u.transactions.forEach(t=>rows.push({...t,user:u.username})));
+  rows.sort((a,b)=>b.id-a.id);
+  document.getElementById('ledgerBody').innerHTML=rows.map(t=>`<tr>
+    <td>${t.user}</td><td>${when(t.timestamp)}</td><td>${t.type}</td><td>${t.narration||'—'}</td>
+    <td>${t.counterparty}</td><td>${fmt(t.amount)}</td><td><span class="badge b-${t.status}">${t.status}</span></td>
+    <td>${t.status!=='successful'
+      ?`<button class="btn green" style="padding:5px 10px;font-size:.75rem;" onclick="setStatus('${t.user}',${t.id},'successful')">Make Successful</button>`
+      :`<button class="btn red" style="padding:5px 10px;font-size:.75rem;" onclick="setStatus('${t.user}',${t.id},'reversed')">Reverse</button>`}</td>
+  </tr>`).join('')||'<tr><td colspan="8" style="color:#7a8aa3">No transactions</td></tr>';
+}
+function setStatus(uname,id,status){
+  const users=getUsers(), u=users.find(x=>x.username===uname);
+  const t=u.transactions.find(x=>x.id===id);
+  const old=t.status; t.status=status;
+  // adjust balances so ledger stays consistent
+  const acct=u.accounts.reduce((m,a)=>a.balance>m.balance?a:a); // main (first-largest) account
+  if(status==='reversed'&&old==='successful'){ acct.balance+=(t.type==='debit'?1:-1)*t.amount; }
+  if(status==='successful'&&old==='reversed'){ acct.balance+=(t.type==='debit'?-1:1)*t.amount; }
+  t.narration=(t.narration?t.narration+' | ':'')+(status==='reversed'?'[REVERSED BY ADMIN]':'[RESTORED BY ADMIN]');
+  saveUsers(users); renderLedger(); renderUsers(); fillAccts();
+}
+
+function setNotif(active){
+  localStorage.setItem('omb_notification',JSON.stringify({message:document.getElementById('notifMsg').value,active}));
+  show('notifDone',active?'ok':'ok',active?'✅ Notification published to all user dashboards.':'🔕 Notification removed.');
+}
+function renderAllow(){
+  const list=JSON.parse(localStorage.getItem('omb_allowlist')||'[]');
+  document.getElementById('allowChips').innerHTML=list.map((n,i)=>`<span class="chip">${n}<button onclick="rmAllow(${i})">✕</button></span>`).join('')||'<span class="tag">Allow list is empty — ALL transfers will be declined.</span>';
+  document.getElementById('declineMsg').value=JSON.parse(localStorage.getItem('omb_decline_msg')||'""');
+}
+function addAllow(){
+  const v=document.getElementById('newAllow').value.trim();
+  if(!/^\d{10}$/.test(v)){ show('allowMsg','bad','Account number must be exactly 10 digits.'); return; }
+  const list=JSON.parse(localStorage.getItem('omb_allowlist')||'[]');
+  if(list.includes(v)){ show('allowMsg','bad','Already on the allow list.'); return; }
+  list.push(v); localStorage.setItem('omb_allowlist',JSON.stringify(list));
+  document.getElementById('newAllow').value=''; renderAllow();
+  show('allowMsg','ok','✅ '+v+' added to allow list.');
+}
+function rmAllow(i){ const list=JSON.parse(localStorage.getItem('omb_allowlist')||'[]'); list.splice(i,1); localStorage.setItem('omb_allowlist',JSON.stringify(list)); renderAllow(); }
+function saveDecline(){ localStorage.setItem('omb_decline_msg',JSON.stringify(document.getElementById('declineMsg').value)); show('allowMsg','ok','✅ Decline message saved.'); }
+
+fillUsers(); renderUsers(); renderLedger(); renderAllow();
+</script>
+</body>
+</html>
