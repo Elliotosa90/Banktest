@@ -7,9 +7,22 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',Arial,sans-serif;}
 body{background:#f4f7fb;color:#12203a;}
+/* Login screen */
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0b1f3a;}
+.login-card{background:#fff;border-radius:16px;padding:45px 40px;width:380px;max-width:92vw;color:#0b1f3a;box-shadow:0 20px 60px rgba(0,0,0,.5);}
+.login-card .brand{display:flex;gap:12px;align-items:center;margin-bottom:25px;}
+.login-card .logo{width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#0b1f3a,#1d4e89);color:#f5a623;display:flex;align-items:center;justify-content:center;font-size:1.3rem;}
+.login-card h1{font-size:1.3rem;} .login-card .sub{font-size:.8rem;color:#6b7a90;}
+.login-card label{font-size:.8rem;font-weight:600;margin:12px 0 5px;display:block;}
+.login-card input{width:100%;padding:13px 15px;border:1.5px solid #d9e1ec;border-radius:10px;font-size:1rem;outline:none;}
+.login-card input:focus{border-color:#1d4e89;}
+.login-card .btn{width:100%;padding:14px;margin-top:18px;border:none;border-radius:10px;background:linear-gradient(135deg,#f5a623,#e8890c);color:#fff;font-size:1rem;font-weight:700;cursor:pointer;}
+.login-card .err{color:#c0392b;font-size:.85rem;margin-top:10px;min-height:1.2em;}
+.login-card .demo{margin-top:18px;font-size:.78rem;color:#6b7a90;background:#f4f7fb;padding:10px 12px;border-radius:8px;}
+/* Panel */
 nav{background:#0b1f3a;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:14px 30px;}
 .brand{display:flex;gap:10px;align-items:center;font-weight:800;}
-.logo{width:40px;height:40px;border-radius:10px;background:#f5a623;color:#0b1f3a;display:flex;align-items:center;justify-content:center;}
+.logo2{width:40px;height:40px;border-radius:10px;background:#f5a623;color:#0b1f3a;display:flex;align-items:center;justify-content:center;}
 .navlinks{display:flex;gap:6px;}
 .navlinks a{padding:9px 16px;border-radius:8px;color:#c6d2e4;font-weight:600;font-size:.9rem;cursor:pointer;}
 .navlinks a.active,.navlinks a:hover{background:rgba(255,255,255,.12);color:#fff;}
@@ -39,15 +52,37 @@ select{width:100%;padding:11px;border:1.5px solid #dbe3ee;border-radius:9px;font
 </style>
 </head>
 <body>
+
+<!-- ============ ADMIN LOGIN (shown first) ============ -->
+<div class="login-wrap" id="loginScreen">
+  <div class="login-card">
+    <div class="brand">
+      <div class="logo">🛡</div>
+      <div><h1>Oba Musky Admin</h1><div class="sub">Administrative access only</div></div>
+    </div>
+    <form onsubmit="return adminLogin(event)">
+      <label>Admin Username</label>
+      <input id="adminUser" placeholder="Enter admin username" required>
+      <label>Password</label>
+      <input id="adminPass" type="password" placeholder="Enter password" required>
+      <button class="btn" type="submit">Sign In →</button>
+      <div class="err" id="adminErr"></div>
+    </form>
+    <div class="demo"><b>Demo credentials</b> — admin / admin123</div>
+  </div>
+</div>
+
+<!-- ============ ADMIN PANEL ============ -->
+<div id="panel" style="display:none;">
 <nav>
-  <div class="brand"><div class="logo">🛡</div>Oba Musky Admin</div>
+  <div class="brand"><div class="logo2">🛡</div>Oba Musky Admin</div>
   <div class="navlinks">
     <a class="active" onclick="go('users',this)">Users</a>
     <a onclick="go('ledger',this)">Transaction Ledger</a>
     <a onclick="go('notify',this)">Notification Bar</a>
     <a onclick="go('allow',this)">Allow List</a>
     <a onclick="go('contacts',this)">Contact Details</a>
-    <a class="logout" onclick="location.href='index.html'">Logout</a>
+    <a class="logout" onclick="adminLogout()">Logout</a>
   </div>
 </nav>
 <main>
@@ -144,6 +179,7 @@ select{width:100%;padding:11px;border:1.5px solid #dbe3ee;border-radius:9px;font
     </div>
   </div>
 </main>
+</div>
 
 <script>
 // ============ SHARED STORE (identical in all 3 files) ============
@@ -161,18 +197,36 @@ const getDecline =()=>{try{return JSON.parse(localStorage.getItem('omb_decline_m
 const getContacts=()=>{try{return JSON.parse(localStorage.getItem('omb_contacts')||'{"emails":[],"phones":[],"address":"","hours":""}');}catch(e){return{emails:[],phones:[],address:'',hours:''};}};
 
 storeInit();
-if(sessionStorage.getItem('omb_admin')!=='yes') location.href='index.html';
 
 const fmt=n=>'$'+Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const when=ts=>new Date(ts).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
 const show=(id,cls,text)=>{const b=document.getElementById(id);b.className='msg '+cls;b.textContent=text;setTimeout(()=>b.className='msg',6000);};
+
+// ============ ADMIN AUTH (this page only) ============
+function adminLogin(e){
+  e.preventDefault();
+  const u=document.getElementById('adminUser').value.trim(), p=document.getElementById('adminPass').value;
+  if(u==='admin'&&p==='admin123'){
+    sessionStorage.setItem('omb_admin','yes');
+    showPanel();
+    return false;
+  }
+  document.getElementById('adminErr').textContent='Invalid admin credentials.'; return false;
+}
+function adminLogout(){ sessionStorage.removeItem('omb_admin'); location.reload(); }
+function showPanel(){
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('panel').style.display='block';
+  renderAll();
+}
+if(sessionStorage.getItem('omb_admin')==='yes') showPanel();
 
 function go(id,el){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   document.querySelectorAll('.navlinks a').forEach(a=>a.classList.remove('active'));
   el.classList.add('active');
-  renderAll(); // refresh everything on tab switch
+  renderAll();
 }
 
 // ============ USERS PAGE ============
@@ -319,9 +373,8 @@ function saveContactMisc(){
 
 // ============ INIT + LIVE SYNC ============
 function renderAll(){ fillUsers(); renderUsers(); renderLedger(); renderAllow(); renderContacts(); }
-renderAll();
-// keep admin panel in sync if data changes in another tab
-setInterval(()=>{ renderUsers(); renderLedger(); },3000);
+if(sessionStorage.getItem('omb_admin')==='yes') renderAll();
+setInterval(()=>{ if(sessionStorage.getItem('omb_admin')==='yes'){ renderUsers(); renderLedger(); } },3000);
 </script>
 </body>
 </html>
