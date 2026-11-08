@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Oba Musky Bank — Login</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI',Arial,sans-serif; }
+body { background:#0b1f3a; color:#fff; min-height:100vh; display:flex; align-items:center; justify-content:center; }
+.container { display:flex; width:1000px; max-width:95vw; min-height:600px; background:#fff; border-radius:18px; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,.5); }
+.carousel { flex:1.2; position:relative; overflow:hidden; }
+.slide { position:absolute; inset:0; display:flex; flex-direction:column; justify-content:flex-end; padding:50px; opacity:0; transition:opacity 1s; background-size:cover; background-position:center; }
+.slide.active { opacity:1; }
+.slide .overlay { background:linear-gradient(transparent, rgba(4,15,35,.92)); padding-top:120px; }
+.slide h2 { font-size:2rem; margin-bottom:10px; }
+.slide p { color:#cfd8e3; max-width:420px; }
+.dots { position:absolute; bottom:20px; left:50px; display:flex; gap:8px; }
+.dot { width:10px; height:10px; border-radius:50%; background:rgba(255,255,255,.4); cursor:pointer; }
+.dot.active { background:#f5a623; }
+.login-side { flex:1; padding:60px 50px; color:#0b1f3a; display:flex; flex-direction:column; justify-content:center; }
+.brand { display:flex; align-items:center; gap:12px; margin-bottom:30px; }
+.logo { width:52px; height:52px; border-radius:14px; background:linear-gradient(135deg,#0b1f3a,#1d4e89); display:flex; align-items:center; justify-content:center; font-size:1.5rem; color:#f5a623; font-weight:bold; }
+.brand h1 { font-size:1.4rem; }
+.brand span { font-size:.8rem; color:#6b7a90; }
+h3 { margin-bottom:5px; font-size:1.3rem; }
+.sub { color:#6b7a90; margin-bottom:25px; font-size:.9rem; }
+label { font-size:.8rem; font-weight:600; margin:12px 0 5px; display:block; }
+input { width:100%; padding:13px 15px; border:1.5px solid #d9e1ec; border-radius:10px; font-size:1rem; outline:none; transition:.2s; }
+input:focus { border-color:#1d4e89; box-shadow:0 0 0 3px rgba(29,78,137,.15); }
+.role { display:flex; gap:10px; margin:15px 0; }
+.role button { flex:1; padding:10px; border:1.5px solid #d9e1ec; background:#fff; border-radius:10px; cursor:pointer; font-weight:600; color:#0b1f3a; }
+.role button.sel { background:#0b1f3a; color:#fff; border-color:#0b1f3a; }
+.btn { width:100%; padding:14px; margin-top:18px; border:none; border-radius:10px; background:linear-gradient(135deg,#f5a623,#e8890c); color:#fff; font-size:1rem; font-weight:700; cursor:pointer; transition:.2s; }
+.btn:hover { transform:translateY(-2px); box-shadow:0 8px 20px rgba(245,166,35,.4); }
+.err { color:#c0392b; font-size:.85rem; margin-top:10px; min-height:1.2em; }
+.demo { margin-top:20px; font-size:.78rem; color:#6b7a90; background:#f4f7fb; padding:10px 12px; border-radius:8px; }
+@media(max-width:800px){ .carousel{display:none;} }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="carousel">
+    <div class="slide active" style="background-image:url('https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=1200&q=80')">
+      <div class="overlay"><h2>Banking Made Simple</h2><p>Send money instantly, track every transaction, and manage your accounts — all in one place.</p></div>
+    </div>
+    <div class="slide" style="background-image:url('https://images.unsplash.com/photo-1563013544-824ae1b59447?auto=format&fit=crop&w=1200&q=80')">
+      <div class="overlay"><h2>Secure & Reliable</h2><p>Your money is protected with industry-leading security and 24/7 monitoring.</p></div>
+    </div>
+    <div class="slide" style="background-image:url('https://images.unsplash.com/photo-1601597111158-2fceff292cdc?auto=format&fit=crop&w=1200&q=80')">
+      <div class="overlay"><h2>Grow With Oba Musky</h2><p>Competitive savings rates, zero hidden charges, and support that never sleeps.</p></div>
+    </div>
+    <div class="dots"><div class="dot active"></div><div class="dot"></div><div class="dot"></div></div>
+  </div>
+
+  <div class="login-side">
+    <div class="brand">
+      <div class="logo">₦</div>
+      <div><h1>Oba Musky Bank</h1><span>Trusted Digital Banking</span></div>
+    </div>
+    <h3>Welcome Back</h3>
+    <p class="sub">Sign in to access your account</p>
+    <div class="role">
+      <button id="roleUser" class="sel" onclick="setRole('user')">👤 Customer</button>
+      <button id="roleAdmin" onclick="setRole('admin')">🛡 Admin</button>
+    </div>
+    <form onsubmit="return doLogin(event)">
+      <label>Username</label>
+      <input id="username" placeholder="Enter username" required>
+      <label>Password</label>
+      <input id="password" type="password" placeholder="Enter password" required>
+      <button class="btn" type="submit">Sign In →</button>
+      <div class="err" id="err"></div>
+    </form>
+    <div class="demo"><b>Demo accounts</b> — Customer: john/1234, jane/1234 &nbsp;|&nbsp; Admin: admin/admin123</div>
+  </div>
+</div>
+
+<script>
+let role='user';
+function setRole(r){ role=r;
+  document.getElementById('roleUser').classList.toggle('sel',r==='user');
+  document.getElementById('roleAdmin').classList.toggle('sel',r==='admin');
+}
+// seed data on first run
+if(!localStorage.getItem('omb_users')){
+  const users=[
+    {username:'john',password:'1234',name:'John Okafor',phone:'+234 803 111 2222',
+     accounts:[{number:'0123456789',type:'Savings',balance:250000},{number:'9876543210',type:'Current',balance:52000}],
+     transactions:[{id:Date.now(),type:'credit',amount:50000,narration:'Salary',counterparty:'Acme Corp Payroll',status:'successful',timestamp:new Date().toISOString()}],
+     restricted:false, restrictionReason:''},
+    {username:'jane',password:'1234',name:'Jane Adeyemi',phone:'+234 805 333 4444',
+     accounts:[{number:'1122334455',type:'Savings',balance:118500}],
+     transactions:[],restricted:false,restrictionReason:''}
+  ];
+  localStorage.setItem('omb_users',JSON.stringify(users));
+  localStorage.setItem('omb_notification',JSON.stringify({message:'Welcome to Oba Musky Bank — experience seamless banking today!',active:true}));
+  localStorage.setItem('omb_allowlist',JSON.stringify(['0123456789','9876543210','1122334455','5566778899']));
+  localStorage.setItem('omb_decline_msg',JSON.stringify('This beneficiary account is currently not accepting transfers. Please contact support.'));
+}
+function doLogin(e){
+  e.preventDefault();
+  const u=document.getElementById('username').value.trim(), p=document.getElementById('password').value;
+  if(role==='admin'){
+    if(u==='admin'&&p==='admin123'){ location.href='admin.html'; return false; }
+    document.getElementById('err').textContent='Invalid admin credentials.'; return false;
+  }
+  const users=JSON.parse(localStorage.getItem('omb_users')||'[]');
+  const f=users.find(x=>x.username===u&&x.password===p);
+  if(f){ sessionStorage.setItem('omb_session',u); location.href='users.html'; return false; }
+  document.getElementById('err').textContent='Invalid username or password.'; return false;
+}
+// carousel
+const slides=document.querySelectorAll('.slide'), dots=document.querySelectorAll('.dot');
+let cur=0;
+function show(i){ slides.forEach((s,j)=>s.classList.toggle('active',j===i)); dots.forEach((d,j)=>d.classList.toggle('active',j===i)); cur=i; }
+setInterval(()=>show((cur+1)%slides.length),5000);
+dots.forEach((d,i)=>d.onclick=()=>show(i));
+</script>
+</body>
+</html>
